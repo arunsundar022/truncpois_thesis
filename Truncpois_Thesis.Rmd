@@ -1,0 +1,219 @@
+---
+title: "The truncpois R Package: A Numerically Stable Implementation of the Truncated Poisson Distribution"
+author: "Arun Sundar Paulraj"
+output:
+  pdf_document:
+    number_sections: true
+    latex_engine: xelatex
+    extra_dependencies: [float, graphicx]
+  html_document:
+    df_print: paged
+fontsize: 12
+geometry: left=2.5cm,right=2.5cm,top=2.5cm,bottom=2.5cm
+papersize: a4
+linestretch: 1.5
+bibliography: thesis_bibliography.bib
+csl: american-statistical-association.csl
+link-citations: yes
+header-includes:
+  - \usepackage{newunicodechar}
+  - \newunicodechar{λ}{\ensuremath{\lambda}}
+---
+
+# Introduction
+
+## Motivation and Context
+
+Truncated probability distributions form an integral part of statistics, and their occurrence in practice is quite common when there are restrictions on the possible values of observations. Truncated Poisson distribution forms an important aspect of counting data models in areas like studies on the abundance of species, insurance claims, and surveys on diseases where there are no cases of zero counts.
+
+Despite the well-researched theoretical aspects of truncated distributions [@nadarajah2006], there are still computational issues involved in their implementation. Current implementations in software like R through the LaplacesDemon package are inadequate in providing the necessary functions and are numerically unstable when used for extreme values of parameters.
+
+## Purpose of this Thesis
+
+The `truncpois` R package addresses these gaps by providing:
+
+1. **Full distribution functions** – PMF (Probability mass function), CDF (Cumulative distribution function), quantile function, and random sampling
+2. **Exact moment computation** – Mean, variance, median, and mode computation in an exact, deterministic way without using simulations
+3. **Stable computation** – All computations done on the log-scale to avoid problems of under-/overflow when parameters are at extremes
+4. **Efficient sampling algorithms** – Three different sampling algorithms depending on the parameter setup
+
+This thesis documents the implementation of the `truncpois` package, demonstrates its key features, and showcases its advantages over existing alternatives.
+
+---
+
+# Background and Literature Review
+
+## Truncated Distributions
+
+Truncated distributions arise when observations from a random variable X are constrained to a finite interval [a, b]. The probability density (or mass, for discrete distributions) is redistributed over this restricted support, with the normalizing constant adjusted accordingly.
+
+For a truncated Poisson distribution with support [a, b], the probability mass function is:
+
+$$P(X = k | a \leq X \leq b) = \frac{P(X = k)}{P(a \leq X \leq b)}$$
+
+where the denominator is the normalization constant computed as the difference of cumulative probabilities at the truncation boundaries.
+
+## Existing Implementations
+
+The `LaplacesDemon` package also provides a truncated Poisson distribution, with `dtrunc()`, `ptrunc()`, `qtrunc()`, and `rtrunc()` functions (via `spec = "pois"`) for density, distribution, quantile, and random-generation calculations respectively. Its PMF and CDF values agree with `truncpois`, but the package has two notable limitations that motivated design choices in `truncpois`:
+
+- `ptrunc()` and `qtrunc()` do not support the `lower.tail` and `log.p` arguments that `truncpois` provides natively; obtaining an upper-tail or log-scale probability from `LaplacesDemon` requires a manual `1 - p` (or `log(1 - p)`) transformation, which risks catastrophic cancellation when the underlying probability is close to 1
+- `LaplacesDemon` provides no closed-form mean, variance, median, or mode for the truncated Poisson distribution; obtaining these requires Monte Carlo simulation via `rtrunc()`, which is slower and introduces sampling variability that grows worse for extreme truncation parameters
+
+## Why truncpois?
+
+This `truncpois` R package addresses these shortcomings with:
+1. The four essential probability distribution functions (d, p, q, r)
+2. Moments calculated in an analytic manner using closed form formulas that make use of the Poisson recurrence formula
+3. Numerically stable algorithms that work purely in log-space
+4. Three sampling techniques depending on the parameter space
+
+---
+
+# Package Implementation
+
+## Overview
+
+The `truncpois` package is built around four core distribution functions, complemented by moment functions, a maximum-likelihood estimator, and a visualization utility.
+
+### Core Distribution Functions
+
+**dtruncpois()** – Probability Mass Function (PMF)
+: Computes $P(X = k | a \leq X \leq b)$ with optional log-scale output for numerical stability.
+
+**ptruncpois()** – Cumulative Distribution Function (CDF)
+: Computes $P(X \leq q | a \leq X \leq b)$ with support for both lower and upper tail probabilities and log-scale computation.
+
+**qtruncpois()** – Quantile Function
+: Inverts the CDF to compute quantiles, supporting log-probability inputs for precision in extreme cases.
+
+**rtruncpois()** – Random Sampling
+: Generates independent samples from the truncated Poisson distribution using one of three methods.
+
+### Moment Functions
+
+**extruncpois()** – Expected Value (Mean)
+: Computes $E[X | a \leq X \leq b]$ using a closed-form formula derived from the Poisson recurrence relation, avoiding simulation-based approximations.
+
+**vartruncpois()** – Variance
+: Computes $\text{Var}(X | a \leq X \leq b)$ via the identity $E[X^2] - E[X]^2$, with the second moment obtained analytically.
+
+**medtruncpois()** – Median
+: Finds the median by inverting the average of CDF values at truncation boundaries.
+
+**modtruncpois()** – Mode
+: Determines the modal value using a closed-form solution that is more efficient than iterative search.
+
+### Parameter Estimation
+
+**mletruncpois()** – Maximum Likelihood Estimation
+: Estimates $\lambda$ from a sample of observed counts by numerically maximizing the exact truncated-Poisson log-likelihood (via `stats::optimize()`), using `dtruncpois()` as the likelihood kernel. Returns the fitted $\lambda$, the log-likelihood at that value, and the sample size.
+
+### Visualization Utility
+
+**plottruncpois()** – Distribution Plotting
+: Plots the PMF, CDF, or quantile function of a truncated Poisson distribution, with an optional overlay of the corresponding untruncated Poisson distribution for direct visual comparison.
+
+### Design Principles
+
+**Log-Scale Stability** - Probability calculations for all distributions take place on the log-scale utilizing the logarithmic difference formula, thus preventing the phenomenon of catastrophic cancellation. It enables the package to operate with such extreme values as λ = 1000, provided that the truncation windows are fairly small.
+
+**Closed-Form Solutions** - Instead of resorting to numerical or Monte Carlo integration techniques, moments can be computed analytically by exploiting the recurrence relations for the Poisson distribution.
+
+**Three Sampling Algorithms** – 
+1. **Direct**: Applies Gumbel-max trick for finite support size.
+2. **Inversion**: Based on quantiles, using qtruncpois() function for any possible parameters.
+3. **Bounded**: Inversion by CDF in bounds range for efficient sampling if bounds discard little mass.
+
+---
+
+# Results and Experiments
+
+## Experiment 1: Visualization of Probability Mass Function
+
+The current experiment shows how the PMF of the regular Poisson distribution differs from the PMF of a right truncated Poisson distribution, generated directly via the package's own `plottruncpois()` visualization utility.
+
+![Visualization of PMF: Regular vs Right Truncated Poisson Distribution (λ=5, b=10)](Figures/01_pmf_visualization.png)
+
+**Conclusion**: As we can see from the picture above, due to the truncation the probability mass is concentrated on the interval [0, 10], particularly more close to the upper end.
+
+---
+
+## Experiment 2: Moment Convergence
+
+As the truncation boundaries become larger, the moments of the truncated distribution tend towards the corresponding moments of the untruncated distribution. The following experiment proves the convergence of mean and variance.
+
+![Mean and Variance Convergence of Truncated Poisson(λ=5)](Figures/02_moment_convergence.png)
+
+**Conclusion**: The graph on the left demonstrates that the mean tends to λ = 5 as the upper boundary grows larger. The graph on the right proves that the variance tends to λ = 5.
+
+---
+
+## Experiment 3: Sampling Method Efficiency
+
+The `rtruncpois()` function provides three sampling algorithms optimized for different parameter configurations. This experiment compares their computational efficiency across three scenarios.
+
+![Sampling Method Efficiency Benchmark](Figures/03_sampling_efficiency.png)
+
+**Interpretation**: Direct Method is the quickest approach for small supports, but not scalable for large supports. Inversion Method performs consistently irrespective of the situation. Bounded Method works best when the amount of truncated probabilities is minimal. One can choose an approach depending on the parameter regime.
+
+---
+
+## Experiment 4: Numerical Stability Demonstration
+
+A key advantage of `truncpois` is its ability to handle extreme parameter values without numerical underflow. This experiment demonstrates log-scale computations across a wide range of λ values, extended to include the stress-test extremes exercised by the package's own test suite: λ = 100,000 with a narrow truncation window, and the narrowest possible truncation window (b = a + 1).
+
+![Numerical Stability Across Extreme Parameters](Figures/04_numerical_stability.png)
+
+**Interpretation**: The log-PMF remains computable for all tested λ values (10 to 100,000) with narrow truncation windows, and the narrowest possible truncation window remains numerically well-behaved. Traditional naive implementations would produce zero or underflow errors in these regimes; `truncpois` handles them seamlessly via log-space arithmetic.
+
+---
+
+## Experiment 5: Zero-Truncated Poisson Application
+
+Zero-truncated Poisson (ZTP) distributions are widely used in count models where zero outcomes are impossible or unobserved. This experiment demonstrates ZTP sampling and moment estimation with practical visualization.
+
+![Zero-Truncated Poisson Application](Figures/05_zero_truncation_application.png)
+
+**Interpretation**: The four panels show (clockwise from top-left): the histogram of 5,000 ZTP samples with theoretical PMF overlay, a Q-Q plot validating distributional fit, a comparison of theoretical vs. empirical moments, and a bootstrap distribution of the sample mean. All demonstrate good agreement between theory and simulation.
+
+---
+
+## Experiment 6: MLE Parameter Recovery
+
+This experiment demonstrates `mletruncpois()`, which estimates $\lambda$ from a sample of observed counts. A sample is simulated from a truncated Poisson distribution with a known $\lambda$, the parameter is re-estimated from the sample alone via maximum likelihood, and the fitted distribution is compared against both the simulated data and the true generating distribution.
+
+![MLE Parameter Recovery: Fitted vs True Truncated Poisson](Figures/06_mle_parameter_recovery.png)
+
+**Interpretation**: The maximum-likelihood estimate of $\lambda$ recovered from the sample closely matches the true generating value, and the theoretical PMF evaluated at the fitted $\lambda$ closely tracks the empirical sample proportions. This confirms that `rtruncpois()`, `mletruncpois()`, and the closed-form moment functions are mutually consistent.
+
+---
+
+# Conclusion
+
+## Summary
+
+The `truncpois` R package offers a complete and numerically stable implementation of truncated Poisson distributions. Through the use of closed-form moment calculations and adaptive sampling techniques, it addresses critical shortcomings found in previous implementations.
+
+## Key Contributions
+
+1. **Completeness** – Full distributional inference via d, p, q, r, and moment functions
+2. **Precision** – Closed-form moments eliminate simulation error
+3. **Stability** – Log-scale arithmetic handles extreme parameter regimes
+4. **Efficiency** – Multiple sampling algorithms optimized for different scenarios
+5. **Reproducibility** – Deterministic, seed-independent moment calculations
+6. **Parameter Estimation** – Maximum likelihood estimation of $\lambda$ directly from observed count data, via `mletruncpois()`
+
+## Future Directions
+
+Potential enhancements include:
+- Extension to other truncated discrete distributions (negative binomial, binomial)
+- Graphical diagnostics and goodness-of-fit tests
+- Computational optimization via C/C++ implementation for large-scale simulations
+
+---
+
+# References {.unnumbered}
+
+::: {#refs}
+:::

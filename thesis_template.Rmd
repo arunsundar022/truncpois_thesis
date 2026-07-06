@@ -1,0 +1,211 @@
+---
+output: 
+  pdf_document:
+    number_sections: true
+    extra_dependencies:
+    - float
+    - graphicx
+  fontsize: 12
+  html_document:
+    df_print: paged
+geometry: left=2.5cm,right=2.5cm,top=2.5cm,bottom=2.5cm
+papersize: a4
+linestretch: 1.5
+header-includes:
+  \usepackage{tocloft}
+  \setlength{\cftbeforesecskip}{10pt}
+  \usepackage{amsmath}
+  \usepackage{booktabs}
+  \usepackage{caption}
+  \usepackage{float}
+  \usepackage{graphicx}
+  \usepackage{lipsum}
+  \usepackage{mathtools}
+  \usepackage{setspace}
+  \usepackage{subcaption}
+  \usepackage{multirow}
+  \captionsetup[figure]{font=small}
+  \captionsetup[table]{font=small}
+  \usepackage{array}
+  \usepackage{ragged2e}
+  \newcolumntype{L}[1]{>{\raggedright\arraybackslash}p{#1}}
+bibliography: thesis_bibliography.bib
+csl: american-statistical-association 2.csl
+link-citations: yes
+nocite: '@*'
+---
+
+\pagenumbering{gobble} 
+```{=tex}
+\begin{center}
+\begin{figure}
+  \centering
+        \includegraphics[width=0.6\columnwidth]{Figures/logo.png}
+  \end{figure}
+\bigskip
+\bigskip
+\bigskip
+ 
+\huge
+\textbf{MSc. Data Science and Analytics Thesis}
+\end{center}
+\bigskip
+\bigskip
+\bigskip
+```
+```{=tex}
+\begin{center}
+\huge{Title}
+\vspace{0.2cm} \\  
+\huge{more title}
+\vspace{0.2cm} \\  
+\huge{more title}
+\end{center}
+\bigskip
+\bigskip
+\bigskip
+\bigskip
+
+```
+ 
+```{=tex}
+\begin{center}
+\large
+\textbf{{Author:}}
+\large{FirstName LastName}  
+\medskip
+
+\textbf{{Student Number:}}
+\large{12345678}  
+\medskip
+
+\large
+\textbf{{Supervisor:}}
+\large{Dr. Keefe Murphy}
+\end{center}
+\bigskip
+\bigskip
+```
+ 
+```{=tex}
+\begin{center}
+\large{\textit{A thesis submitted in fulfilment of the requirements for the degree of Masters in Data Science and Analytics 2024-2025}}
+\medskip
+ 
+\large{to the}
+\medskip
+ 
+\large{Department of Mathematics \& Statistics}
+ 
+\large{Maynooth University}
+\bigskip
+\bigskip
+ 
+\large
+\textbf{8\textsuperscript{th} August 2025}
+\end{center}
+```
+
+\newpage
+\pagenumbering{roman}
+ 
+# Acknowledgements {.unnumbered}
+
+Text here.
+
+\newpage
+ 
+# Abstract {.unnumbered}
+A few paragraphs of text here.
+
+\bigskip
+**Keywords:** KW1, KW2, KW3, KW4, KW5.
+
+\newpage
+ 
+\tableofcontents
+ 
+\newpage
+ 
+# List of tables {.unnumbered}
+ 
+\renewcommand{\listtablename}{} 
+\listoftables
+ 
+\newpage
+ 
+# List of figures {.unnumbered}
+ 
+\renewcommand{\listfigurename}{}
+\listoffigures
+ 
+\newpage
+ 
+\pagenumbering{arabic}
+
+# Introduction {#Introduction} 
+Notice that there is one hash symbol written before the title of Sections (e.g. 1), two hash symbols before the title of subsections (e.g. 1.1), and three hash symbols before the title of subsubsections (e.g. 1.1.1).
+
+## Objectives	{#Objectives}
+The labels in curly brackets after the declaration of (subsub)section headings allows you to cross-reference them. For example, how to specify sections, subsections, and subsubsections was described in Section \ref{Introduction}.
+
+# Data {#Data}
+How to add citations depends on whether you want them to appear in parentheses, or to appear as part of a sentence. Compare how the following two in-text citations look after knitting this file. Note that the Saqr2021 entry is provided in the corresponding .bib file.
+
+It is easy to cite in parentheses [@Saqr2021]. We can also cite @Saqr2021 without parentheses, so that it flows in the sentence, by removing the square brackets.
+
+## Exploratory data analysis {#EDA}
+I'll use this space to explain how to include plots and tables. Plots are included in the figure environment using the command includegraphics. The [H] tells RMarkdown that the figure, when knitted, should go EXACTLY where it is placed in the .RMD file. The specification of width and keepaspecratio in square brackets should be used for all figures. Next to this, in curly brackets, provide the path to the file. Note that caption command allows you to specify a short caption (for the list of figures) and a long caption (to appear in the main text itself). There is a convention that captions go below figures but above tables. Here is the example for a figure.
+
+\begin{figure}[H] 
+\centering 
+\includegraphics[width=\textwidth,keepaspectratio]{Figures/Singlesequences.png} 
+\caption[This short caption will be appear in the list of figures.]{This long caption will appear BELOW the figure in the main text of the document itself.} 
+\label{singlesequences} 
+\end{figure}
+
+Figures can also be cross-referenced by using the tag provided in the label. See Figure \ref{singlesequences}. Tables are a bit trickier. Note in Table \ref{singlemt} that if only a long caption is provided, it will also serve as the short caption. This is fine if the long caption is not too long. Within the table environment, we need a tabular environment. The first curly brackets indicate the number of columns and whether they are left (l), centre (c), or right (r) aligned. Each line ends with two backslashes. Columns are separated with ampersands. Study this example carefully.
+
+\begin{table}[H]
+\centering
+\caption{Mean proportion of time spent in each state of each individual channel.} \label{singlemt}
+\begin{tabular}{lclc}
+\hline
+Engagement state & Proportion of time spent & Achievement state & Proportion of time spent \\
+\hline
+Disengaged & 0.22 & Low & 0.37 \\
+Average & 0.48 & Intermediate & 0.23 \\
+Active & 0.30 & Achiever & 0.39 \\
+\hline
+\end{tabular}
+\end{table}
+
+
+# Methodology {#Methodology}
+The rest of this template is left mostly blank. Just note when you knit this file that the list of figures and list of tables is automatically generated from your captions, and the table of contents is automatically generated from your (subsub)section titles, thanks to the stuff I included in lines 126 to 140.
+
+Another thing to note is that this file, when knitted, will have a bunch of references in the bibliography. This is thanks to the nocite command on line 35. Ideally, ALL references in YOUR .bib file will be cited, and this nocite command should be removed before submission. The bibliography appears on a newpage thanks to the newpage command on line 206. In principle, you could introduce page breaks between each main section using this approach.
+
+I think that covers everything...
+
+## Subsection {#meth1}
+
+### Subsubsection {#meth11}
+
+## Subsection {#meth2}
+
+### Subsubsection {#meth221}
+
+# Results {#Results}
+
+# Discussion {#discussion}
+
+## Conclusions {#conclusion}
+## Future Work {#futurework}
+
+\newpage
+ 
+# Bibliography {.unnumbered}
+\interlinepenalty=10000 
+::: {#refs}
+:::

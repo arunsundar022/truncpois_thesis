@@ -1656,39 +1656,45 @@ thesis.</p>
 </div>
 <div id="abstract" class="section level1 unnumbered">
 <h1 class="unnumbered">Abstract</h1>
-<p>Truncated probability distributions arise naturally in count-data
-applications where certain outcomes are structurally excluded from
-observation, such as zero-truncated counts in species abundance surveys,
-insurance claims data, and disease case reporting. Despite their
-prevalence, existing R implementations of the truncated Poisson
-distribution – most notably through the <code>LaplacesDemon</code>
-package – offer only partial support: they lack closed-form moment
-calculations, provide incomplete handling of upper-tail and log-scale
-probabilities, and rely on Monte Carlo simulation where exact solutions
-exist.</p>
-<p>This thesis presents <code>truncpois</code>, an R package providing a
-complete and numerically stable implementation of the left-, right-, and
-doubly-truncated Poisson distribution. The package supplies the full
-suite of density, distribution, quantile, and random-generation
-functions, together with closed-form mean, variance, median, and mode
-calculations derived from the Poisson recurrence relation. All
-computations are performed on the log scale to avoid underflow at
-extreme parameter values, and three distinct random-sampling algorithms
-are provided to suit different truncation regimes. The package is
-further extended with a maximum-likelihood estimator for recovering the
-rate parameter from observed count data, and a visualization utility for
-comparing truncated and untruncated distributions.</p>
-<p>The package’s correctness, precision, and numerical stability are
-demonstrated through six experiments: visualization of the probability
-mass function, convergence of truncated moments to their untruncated
-counterparts, a comparison of sampling-method efficiency, a
-demonstration of stability under extreme parameter values and narrow
-truncation windows, an applied zero-truncated Poisson case study, and a
-maximum-likelihood parameter-recovery exercise. Together, these results
-show that <code>truncpois</code> addresses a genuine gap in R’s
-ecosystem for truncated count-data analysis, offering exact,
-reproducible, and computationally efficient tools where only approximate
-or incomplete alternatives previously existed.</p>
+<p>Although there are a variety of applications of count-data for which
+some types of observations are either not made or otherwise cannot be
+observed (e.g., zero-truncated counts in studies of species abundance,
+insurance claims, reported cases of disease), available R
+implementations for the truncated Poisson — with the exception of the
+<code>LaplacesDemon</code> package — do not fully support this type of
+model; that is to say, they have no way to calculate moments using
+analytical means for an arbitrary number of parameters, do not
+completely address how to compute probabilities in the right tail and/or
+at the log scale, and utilize Monte Carlo methods when these can be done
+exactly.</p>
+<p>This dissertation provides <code>truncpois</code> , an R Package that
+implements all aspects of the (left-, right- and doubly-) Truncated
+Poisson Distribution in a numerically stable form. It includes all
+standard density function, distribution function, quantile function and
+random sampling function as well as the closed-form calculation of mean,
+variance, median and mode of the distribution using the Poisson
+Recurrence Relation. The entire computation is carried out on the
+log-scale to avoid overflow when dealing with large parameter values;
+furthermore, three alternative random sampling algorithms have been
+developed for use with different truncations. In addition to these
+functionalities, it also develops a Maximum Likelihood Estimator to
+obtain the rate parameter from observed counts as well as a
+visualization tool to compare the distributions of the truncated and
+untruncated cases.</p>
+<p>Six experiments demonstrate the reliability, accuracy, and
+computational robustness of this package. These experiments include
+visualizing the probability mass function (PMF) of the distribution;
+demonstrating how the truncated moments converge to their non-truncated
+counterparts; showing how the sampling methods perform relative to each
+other; evaluating the computational stability as the parameters take on
+extreme values while at the same time the truncation window is very
+narrow; performing a real data application using the zero-truncated
+Poisson distribution; and recovering estimated parameters via maximum
+likelihood estimation. Overall, this demonstrates that
+<code>truncpois</code> fills a significant void in R’s available options
+for analyzing truncated counts with exact, replicable and
+computationally efficient algorithms — whereas previous approximations
+were incomplete.</p>
 <p><strong>Keywords:</strong> truncated Poisson distribution, R package,
 numerical stability, maximum likelihood estimation, closed-form
 moments.</p>
@@ -1707,18 +1713,21 @@ moments.</p>
 <h1>Introduction</h1>
 <div id="motivation-and-context" class="section level2">
 <h2>Motivation and Context</h2>
-<p>Truncated probability distributions form an integral part of
-statistics, and their occurrence in practice is quite common when there
-are restrictions on the possible values of observations. Truncated
-Poisson distribution forms an important aspect of counting data models
-in areas like studies on the abundance of species, insurance claims, and
-surveys on diseases where there are no cases of zero counts.</p>
-<p>Despite the well-researched theoretical aspects of truncated
-distributions <span class="citation">(<a href="#ref-nadarajah2006">Nadarajah and Kotz 2006</a>)</span>, there are
-still computational issues involved in their implementation. Current
-implementations in software like R through the LaplacesDemon package are
-inadequate in providing the necessary functions and are numerically
-unstable when used for extreme values of parameters.</p>
+<p>Truncated probability distributions are a common area of study within
+statistics, as they occur frequently in practice when the range of valid
+observations has been limited in some way. The truncated Poisson
+distribution is an important type of model that can be used to fit
+count-type data, such as in studies concerning species abundance,
+insurance claims and disease prevalence surveys (where the number of
+cases is never equal to zero).</p>
+<p>Although there is considerable theoretical knowledge about truncated
+distributions, which have been studied extensively by researchers like
+Nadarajah et al. <span class="citation">(<a href="#ref-nadarajah2006">Nadarajah and Kotz 2006</a>)</span> in
+relation to truncated distributions, the application of these
+distributions remains computationally complex and current
+implementations in packages like R’s LaplacesDemon package are also
+insufficient and numerically unstable with respect to extreme parameter
+values.</p>
 </div>
 <div id="purpose-of-this-thesis" class="section level2">
 <h2>Purpose of this Thesis</h2>
@@ -1747,16 +1756,17 @@ showcases its advantages over existing alternatives.</p>
 <h1>Background and Literature Review</h1>
 <div id="truncated-distributions" class="section level2">
 <h2>Truncated Distributions</h2>
-<p>Truncated distributions arise when observations from a random
-variable <span class="math inline">\(X\)</span> are constrained to lie
-within a restricted support, either because values outside that range
-are structurally impossible or because they are simply not recorded.
-This is distinct from <em>censoring</em>, where out-of-range values are
-known to occur but their exact magnitude is unobserved (e.g. a
-measurement instrument with a detection limit); in truncation, values
-outside the support do not enter the sample at all, and the probability
-mass or density is <em>redistributed</em> over the restricted support
-with the normalizing constant adjusted accordingly.</p>
+<p>When data generated by a random variable <span class="math inline">\(X\)</span> cannot take on any value other than
+those included in a limited set of possible values (because such values
+may be structurally impossible, or merely omitted), this results in
+truncated distribution. A truncated distribution differs from censored
+data which includes some information about out-of-range values but does
+not include actual values for them; in the case of censoring there is an
+indication that a value did exist, whereas with truncation, no data is
+collected that would indicate that such a value exists. The total
+probability or density associated with a value not in the support has
+been redistributed among the remaining values, along with appropriate
+adjustments made to the normalization factor.</p>
 <p>Three truncation regimes are commonly distinguished for a discrete
 random variable with support constrained to <span class="math inline">\([a, b]\)</span>:</p>
 <ul>
@@ -1780,25 +1790,29 @@ observations to a bounded window.</li>
 is:</p>
 <p><span class="math display">\[P(X = k \mid a \leq X \leq b) =
 \frac{P(X = k)}{P(a \leq X \leq b)}, \qquad a \leq k \leq b\]</span></p>
-<p>where the denominator is the normalizing constant, computed as the
-difference of cumulative probabilities at the truncation boundaries. It
-is worth distinguishing zero-truncation from the related but distinct
-notion of <em>zero-inflation</em>: a zero-inflated model retains zero as
-part of the support but allows for an excess of zeros beyond what a
-standard Poisson would predict (typically via a mixture with a point
-mass at zero), whereas a zero-truncated model removes zero from the
-support entirely. The two are frequently confused in applied work but
-require different estimation strategies, and <code>truncpois</code>
-addresses only the truncated case.</p>
-<p>Count data subject to truncation of this kind are common across many
-application domains: species-abundance surveys in ecology routinely
-exclude unobserved (zero-count) species, insurance claims data by
-definition only contains claims that were actually filed (excluding the
-zero-claim policies), and disease-surveillance case counts may only be
-recorded once a threshold number of cases triggers reporting. In each
-setting, naively fitting an untruncated Poisson model to such data
-biases parameter estimates, since the model does not account for the
-missing region of the support.</p>
+<p>There is some confusion in applied statistical modeling research on
+the terms “zero inflation” and “zero-truncation.” Zero-truncation refers
+to removing zero from the sample space; while zero-inflation adds
+additional zeroes beyond that expected by a Poisson distribution by
+including a point mass at zero. The “truncpois” R package only models
+zero-truncation. Therefore it can be seen as requiring an alternative
+strategy to estimate the zero-inflation model. This includes computing
+the normalizing constant (the denominator) as the difference of the
+cumulative probability distributions evaluated at the lower and upper
+bounds of truncation.</p>
+<p>Data collected on count variables that experience truncation like
+this is quite common in many different types of applications. For
+example, abundance surveys of species in ecology often do not include
+all species present in the area being surveyed because those with a zero
+count have no record of their presence; likewise, insurance claim data
+typically will not contain records of claims that did not occur (since
+zero claim policies will never generate an actual claim); finally, while
+case counts for diseases are always reported when there are enough cases
+to report, prior to reaching that level they are not. As a result, if
+you fit an unmodified Poisson model to data from any of these areas
+without accounting for the truncated region of the Poisson
+distribution’s support, your model will produce biased estimates for
+parameters in the model.</p>
 </div>
 <div id="existing-implementations" class="section level2">
 <h2>Existing Implementations</h2>
@@ -1828,61 +1842,57 @@ requires Monte Carlo simulation via <code>rtrunc()</code>, which is
 slower and introduces sampling variability that grows worse for extreme
 truncation parameters.</li>
 </ul>
-<p><strong>truncdist.</strong> Notably, the same authors as the
-theoretical reference underpinning this thesis <span class="citation">(<a href="#ref-nadarajah2006">Nadarajah and Kotz
-2006</a>)</span> also released a companion R package,
-<code>truncdist</code>, providing generic <code>dtrunc()</code>,
-<code>ptrunc()</code>, <code>qtrunc()</code>, and <code>rtrunc()</code>
-wrapper functions that can truncate <em>any</em> distribution supplied
-by the <code>stats</code>, <code>stats4</code>, or <code>evd</code>
-packages, given the distribution’s name as a string argument. This
-generality is also its limitation for the present purpose: because
-<code>truncdist</code> is distribution-agnostic, it cannot exploit the
-Poisson-specific recurrence relation that <code>truncpois</code> uses to
-obtain closed-form moments, and does not provide a Poisson-specific,
-log-scale-first computational path.</p>
-<p><strong>VGAM / VGAMdata.</strong> The <code>VGAM</code> package’s
-<code>pospoisson()</code> family function fits a <em>zero-truncated</em>
-(“positive”) Poisson regression model via <code>vglm()</code>, and the
-companion <code>VGAMdata</code> package exposes the underlying
-distribution directly through <code>dpospois()</code>,
-<code>ppospois()</code>, <code>qpospois()</code>, and
-<code>rpospois()</code>. These functions are well suited to the
-zero-truncation case specifically, but do not generalize to
-right-truncation or doubly-truncated supports, and are oriented
-primarily towards the regression-modelling use case rather than
-standalone distributional computation.</p>
-<p><strong>gamlss.tr and countreg.</strong> Two further packages address
-truncation in a regression-modelling context rather than as a standalone
-distributional utility. <code>gamlss.tr</code> generates truncated
-versions of any <code>gamlss.family</code> distribution via
-<code>gen.trun()</code>, for use within the GAMLSS regression framework.
-<code>countreg</code> (currently distributed via R-Forge) provides
-<code>zerotrunc()</code> and a <code>ztpoisson</code> family object for
-fitting zero-truncated count regression models, including as the count
-component of hurdle models. Both are valuable for modelling
-covariate-dependent truncated counts, but neither provides the exact,
-closed-form moment functions of an isolated (non-regression) truncated
-Poisson distribution that this thesis is concerned with.</p>
+<p><strong>truncdist.</strong> The same authors of the theory that
+supports this research <span class="citation">(<a href="#ref-nadarajah2006">Nadarajah and Kotz 2006</a>)</span>, published
+an associated R package, <code>truncdist</code> which provides
+generalized (distribution agnostic) dtrunc(), ptrunc(), qtrunc(),
+rtrunc() function wrappers for truncating any distribution supplied by
+<code>stats</code>, <code>stats4</code>, or <code>evd</code>. While the
+generalization is nice for some purposes, it makes
+<code>truncdist</code> unsuitable in the case at hand since there isn’t
+a way to take advantage of the specific relationship in the Poisson
+distribution that <code>truncpois</code> takes advantage of to calculate
+closed form moments; additionally, <code>truncdist</code> doesn’t
+include a computational path through the logarithm scale first.</p>
+<p>The <strong>VGAM/VGAMdata.</strong> The “pospoisson()” family in the
+“VGAM” package allows you to fit a <em>zero-truncated (or positive)
+Poisson regression</em> using vglm(). There is a companion package
+called <strong>VGAMdata</strong>, which provides access to the
+distributions used for fitting using <strong>VGAM</strong>. The
+<strong>VGAMdata</strong> package includes <strong>dpospois(),
+ppospois(), qpospois(), rpospois()</strong>, as well as other similar
+functions that work with a zero truncated support; however these
+functions don’t allow you to use them to compute the distribution for
+right truncation, or double truncation.</p>
+<p><strong>gamlss.tr and countreg.</strong> The two remaining packages
+are concerned with using “truncation” to create new distributions to be
+used in regression modeling rather than as stand-alone utilities to
+generate a distribution. <code>gamlss.tr</code> uses
+<code>gen.trun()</code> to create a “truncated version” of any of the
+<code>gamlss.family</code> distributions which can then be used in a
+GAMLSS regression model. <code>countreg</code> (currently available on
+R-Forge) allows users to fit zero-truncated count regression models with
+<code>zerotrunc()</code> or <code>ztpoisson</code>, both of which may be
+useful as the count part of a hurdle model; however, none provide the
+exact closed form moments of a non-regression (isolated) truncated
+Poisson distribution which is the focus of this research.</p>
 </div>
 <div id="why-truncpois" class="section level2">
 <h2>Why truncpois?</h2>
 <p>The <code>truncpois</code> R package addresses the shortcomings
 identified above with:</p>
 <ol style="list-style-type: decimal">
-<li>The four essential probability distribution functions (d, p, q, r),
-matching base R’s naming convention, supporting left-, right-, and
-doubly-truncated supports.</li>
-<li>Moments calculated analytically using closed-form formulas that
-exploit the Poisson recurrence relation, rather than falling back to
-Monte Carlo simulation or generic numerical integration.</li>
-<li>Numerically stable algorithms that work purely in log-space,
-including full <code>lower.tail</code>/<code>log.p</code> support absent
-from <code>LaplacesDemon</code>.</li>
-<li>Three sampling techniques suited to different parameter regimes, and
-a maximum-likelihood estimator for recovering <span class="math inline">\(\lambda\)</span> from observed data – a capability
-not offered by the general-purpose truncation packages
-<code>truncdist</code> or <code>LaplacesDemon</code>.</li>
+<li>Four essential probability distribution functions (d, p, q, r) with
+base R’s naming conventions for the left-, right-, and doubly truncated
+cases.</li>
+<li>Analytical moments based on closed form solutions of Poisson
+recurrence relation; as opposed to Monte-Carlo methods or general
+purpose numerical integrations.</li>
+<li>Log space algorithms which are numerically stable, and include
+lower.tail/log.p support – unlike LaplacesDemon.</li>
+<li>Three different sampling schemes for different parameters, and an
+MLE to estimate lambda from your observations – this is not available
+from truncdist, nor from LaplacesDemon.</li>
 </ol>
 <hr />
 </div>
@@ -2073,17 +2083,18 @@ standard construction since <span class="math inline">\(-\log(\text{Exp}(1)) \si
 </div>
 <div id="software-engineering" class="section level3">
 <h3>Software Engineering</h3>
-<p>The package follows standard R packaging conventions to support
-maintainability and ease of installation. Source code is organized by
-responsibility: <code>truncpois.R</code> implements the four core
-distribution functions, <code>moments.R</code> the closed-form moment
-functions, <code>mle.R</code> the maximum-likelihood estimator,
-<code>plottruncpois.R</code> the visualization utility, and
-<code>zzz_utils.R</code> a set of internal (unexported) numerically
-stable helper functions – log-sum-exp, log-1-minus-exp, and the shared
-log-scale normalizing-constant computation – that are reused across the
-public-facing functions to keep the log-scale arithmetic consistent and
-centrally tested.</p>
+<p>The package follows common R packaging standards to enable the
+packages’ maintainability and facilitate their installation. Code for
+the source of this package is organized based on functionality:
+truncpois.R includes the implementation of all four of the main
+distributions, moments.R contains the closed-form calculations for all
+of the moments, mle.R implements the Maximum Likelihood Estimator and
+plottruncpois.R provides a visual representation tool. In addition to
+these publicly available functions, zzz_utils.R holds a collection of
+private (unexported) numerically stable utilities: log-sum-exp,
+log-1-minus-exp, and the log-scale normalizing constant that will be
+used in each function’s logic to ensure that the log-based scaling
+remains logically correct and has been centrally tested.</p>
 <p>Every exported function is documented using <code>roxygen2</code>,
 with runnable <code>@examples</code> blocks that double as informal
 usage demonstrations. Correctness is verified by an automated

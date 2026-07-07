@@ -3,13 +3,14 @@ devtools::install_github("arunsundar022/truncpois")
 library(truncpois)
 
 dir.create("Figures", showWarnings = FALSE)
+dir.create("RData", showWarnings = FALSE)
 
-# Experiment 1: PMF visualization (via the package's own plottruncpois() utility)
+# PMF visualization (via the package's own plottruncpois() utility)
 png("Figures/01_pmf_visualization.png", width=900, height=700)
 plottruncpois(lambda = 5, b = 10)
 dev.off()
 
-# Experiment 2: How mean and variance converge as bounds increase
+# How mean and variance converge as bounds increase
 lambda <- 5
 bounds <- seq(5, 50, by = 1)
 means <- sapply(bounds, function(b) extruncpois(lambda = lambda, a = 0, b = b))
@@ -35,7 +36,7 @@ legend("bottomright", c("Truncated Variance", "Untruncated Variance"),
 par(mfrow = c(1, 1))
 dev.off()
 
-# Experiment 3: Compare sampling methods
+# Compare sampling methods via microbenchmark::microbenchmark()
 set.seed(42)
 n_samples <- 10000
 
@@ -52,24 +53,24 @@ rownames(timing_matrix) <- methods
 
 for (i in seq_along(scenarios)) {
   scenario <- scenarios[[i]]
-  for (j in seq_along(methods)) {
-    method <- methods[j]
-    time_taken <- system.time({
-      rtruncpois(n_samples, lambda = scenario$lambda, 
-                 a = scenario$a, b = scenario$b, method = method)
-    })[3]
-    timing_matrix[j, i] <- time_taken * 1000
-  }
+  mb <- microbenchmark::microbenchmark(
+    direct    = rtruncpois(n_samples, lambda = scenario$lambda, a = scenario$a, b = scenario$b, method = "direct"),
+    inversion = rtruncpois(n_samples, lambda = scenario$lambda, a = scenario$a, b = scenario$b, method = "inversion"),
+    bounded   = rtruncpois(n_samples, lambda = scenario$lambda, a = scenario$a, b = scenario$b, method = "bounded"),
+    times = 20
+  )
+  med_ms <- tapply(mb$time, mb$expr, median) / 1e6  # nanoseconds -> milliseconds
+  timing_matrix[, i] <- med_ms[methods]
 }
 
 png("Figures/03_sampling_efficiency.png", width=900, height=700)
 barplot(timing_matrix, beside = TRUE, col = c("lightblue", "lightcoral", "lightgreen"),
-        main = "Sampling Method Efficiency (10,000 samples)",
+        main = "Sampling Method Efficiency (10,000 samples, median of 20 microbenchmark reps)",
         ylab = "Time (milliseconds)", xlab = "Parameter Scenario",
         legend.text = methods, args.legend = list(x = "topleft"))
 dev.off()
 
-# Experiment 4: Numerical stability with large lambdas, extended with stress-test extremes
+# Numerical stability with large lambdas, extended with stress-test extremes
 lambdas <- c(10, 50, 100, 200, 500, 1e5)
 a_vals  <- c(lambdas[1:5] - 10, 1e5 - 500)
 b_vals  <- c(lambdas[1:5] + 10, 1e5 + 500)
@@ -103,7 +104,7 @@ legend("bottomleft", c("Narrow window (±10 to ±500)", "Narrowest possible wind
        col = c("darkblue", "firebrick"), pch = c(19, 17), lty = c(1, NA))
 dev.off()
 
-# Experiment 5: Zero-truncated Poisson example
+# Zero-truncated Poisson example
 set.seed(123)
 lambda <- 2.5
 samples <- rtruncpois(5000, lambda = lambda, a = 1)
@@ -146,7 +147,7 @@ abline(v = theo_mean, col = "red", lwd = 2, lty = 2)
 par(mfrow = c(1, 1))
 dev.off()
 
-# Experiment 6: MLE parameter recovery
+# MLE parameter recovery
 set.seed(2026)
 lambda_true <- 6
 a6 <- 2
@@ -172,4 +173,12 @@ dev.off()
 
 cat("Fitted lambda:", fit6$lambda, " | True lambda:", lambda_true, "\n")
 
-cat("All experiments done. Figures saved to Figures/ folder.\n")
+moment_convergence <- data.frame(bound = bounds, mean = means, variance = variances)
+sampling_timing_ms <- timing_matrix
+mle_recovery <- list(true_lambda = lambda_true, fitted = fit6,
+                      sample = x6, a = a6, b = b6)
+
+save(moment_convergence, sampling_timing_ms, mle_recovery,
+     file = "RData/results.RData")
+
+cat("All experiments done. Figures saved to Figures/ folder, results saved to RData/results.RData.\n")

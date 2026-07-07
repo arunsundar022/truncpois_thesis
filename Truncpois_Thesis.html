@@ -9,10 +9,9 @@
 <meta http-equiv="X-UA-Compatible" content="IE=EDGE" />
 
 
-<meta name="author" content="Arun Sundar Paulraj" />
 
 
-<title>The truncpois R Package: A Numerically Stable Implementation of the Truncated Poisson Distribution</title>
+<title>Truncpois_Thesis.knit</title>
 
 <script>// Pandoc 2.9 adds attributes on both header and div. We remove the former (to
 // be compatible with the behavior of Pandoc < 2.8).
@@ -1643,13 +1642,67 @@ display: none;
 
 
 
-<h1 class="title toc-ignore">The truncpois R Package: A Numerically
-Stable Implementation of the Truncated Poisson Distribution</h1>
-<h4 class="author">Arun Sundar Paulraj</h4>
 
 </div>
 
 
+<div id="acknowledgements" class="section level1 unnumbered">
+<h1 class="unnumbered">Acknowledgements</h1>
+<p>I would like to sincerely thank my supervisor, Dr. Keefe Murphy, for
+his guidance, support, and valuable feedback throughout the development
+of the <code>truncpois</code> package and the writing of this
+thesis.</p>
+<div style="page-break-after: always;"></div>
+</div>
+<div id="abstract" class="section level1 unnumbered">
+<h1 class="unnumbered">Abstract</h1>
+<p>Truncated probability distributions arise naturally in count-data
+applications where certain outcomes are structurally excluded from
+observation, such as zero-truncated counts in species abundance surveys,
+insurance claims data, and disease case reporting. Despite their
+prevalence, existing R implementations of the truncated Poisson
+distribution – most notably through the <code>LaplacesDemon</code>
+package – offer only partial support: they lack closed-form moment
+calculations, provide incomplete handling of upper-tail and log-scale
+probabilities, and rely on Monte Carlo simulation where exact solutions
+exist.</p>
+<p>This thesis presents <code>truncpois</code>, an R package providing a
+complete and numerically stable implementation of the left-, right-, and
+doubly-truncated Poisson distribution. The package supplies the full
+suite of density, distribution, quantile, and random-generation
+functions, together with closed-form mean, variance, median, and mode
+calculations derived from the Poisson recurrence relation. All
+computations are performed on the log scale to avoid underflow at
+extreme parameter values, and three distinct random-sampling algorithms
+are provided to suit different truncation regimes. The package is
+further extended with a maximum-likelihood estimator for recovering the
+rate parameter from observed count data, and a visualization utility for
+comparing truncated and untruncated distributions.</p>
+<p>The package’s correctness, precision, and numerical stability are
+demonstrated through six experiments: visualization of the probability
+mass function, convergence of truncated moments to their untruncated
+counterparts, a comparison of sampling-method efficiency, a
+demonstration of stability under extreme parameter values and narrow
+truncation windows, an applied zero-truncated Poisson case study, and a
+maximum-likelihood parameter-recovery exercise. Together, these results
+show that <code>truncpois</code> addresses a genuine gap in R’s
+ecosystem for truncated count-data analysis, offering exact,
+reproducible, and computationally efficient tools where only approximate
+or incomplete alternatives previously existed.</p>
+<p><strong>Keywords:</strong> truncated Poisson distribution, R package,
+numerical stability, maximum likelihood estimation, closed-form
+moments.</p>
+<div style="page-break-after: always;"></div>
+<div style="page-break-after: always;"></div>
+</div>
+<div id="list-of-tables" class="section level1 unnumbered">
+<h1 class="unnumbered">List of tables</h1>
+<div style="page-break-after: always;"></div>
+</div>
+<div id="list-of-figures" class="section level1 unnumbered">
+<h1 class="unnumbered">List of figures</h1>
+<div style="page-break-after: always;"></div>
+</div>
 <div id="introduction" class="section level1">
 <h1>Introduction</h1>
 <div id="motivation-and-context" class="section level2">
@@ -1695,26 +1748,72 @@ showcases its advantages over existing alternatives.</p>
 <div id="truncated-distributions" class="section level2">
 <h2>Truncated Distributions</h2>
 <p>Truncated distributions arise when observations from a random
-variable X are constrained to a finite interval [a, b]. The probability
-density (or mass, for discrete distributions) is redistributed over this
-restricted support, with the normalizing constant adjusted
-accordingly.</p>
-<p>For a truncated Poisson distribution with support [a, b], the
-probability mass function is:</p>
-<p><span class="math display">\[P(X = k | a \leq X \leq b) = \frac{P(X =
-k)}{P(a \leq X \leq b)}\]</span></p>
-<p>where the denominator is the normalization constant computed as the
-difference of cumulative probabilities at the truncation boundaries.</p>
+variable <span class="math inline">\(X\)</span> are constrained to lie
+within a restricted support, either because values outside that range
+are structurally impossible or because they are simply not recorded.
+This is distinct from <em>censoring</em>, where out-of-range values are
+known to occur but their exact magnitude is unobserved (e.g. a
+measurement instrument with a detection limit); in truncation, values
+outside the support do not enter the sample at all, and the probability
+mass or density is <em>redistributed</em> over the restricted support
+with the normalizing constant adjusted accordingly.</p>
+<p>Three truncation regimes are commonly distinguished for a discrete
+random variable with support constrained to <span class="math inline">\([a, b]\)</span>:</p>
+<ul>
+<li><strong>Left-truncation</strong> (<span class="math inline">\(a &gt;
+0\)</span>, <span class="math inline">\(b = \infty\)</span>): the most
+common case in count-data applications, where counts below some
+threshold cannot be observed. The special case <span class="math inline">\(a = 1\)</span> is known as
+<em>zero-truncation</em>, and arises whenever the very fact of being
+included in a sample requires at least one occurrence of the event being
+counted – for example, a respondent is only included in a survey of
+hospital visits if they visited hospital at least once.</li>
+<li><strong>Right-truncation</strong> (<span class="math inline">\(a =
+0\)</span>, <span class="math inline">\(b &lt; \infty\)</span>): counts
+above some upper threshold are excluded, for instance when a
+data-collection instrument imposes a maximum recordable value.</li>
+<li><strong>Doubly-truncated</strong> (<span class="math inline">\(0
+&lt; a \leq b &lt; \infty\)</span>): both bounds are finite, restricting
+observations to a bounded window.</li>
+</ul>
+<p>For a truncated Poisson distribution with support <span class="math inline">\([a, b]\)</span>, the probability mass function
+is:</p>
+<p><span class="math display">\[P(X = k \mid a \leq X \leq b) =
+\frac{P(X = k)}{P(a \leq X \leq b)}, \qquad a \leq k \leq b\]</span></p>
+<p>where the denominator is the normalizing constant, computed as the
+difference of cumulative probabilities at the truncation boundaries. It
+is worth distinguishing zero-truncation from the related but distinct
+notion of <em>zero-inflation</em>: a zero-inflated model retains zero as
+part of the support but allows for an excess of zeros beyond what a
+standard Poisson would predict (typically via a mixture with a point
+mass at zero), whereas a zero-truncated model removes zero from the
+support entirely. The two are frequently confused in applied work but
+require different estimation strategies, and <code>truncpois</code>
+addresses only the truncated case.</p>
+<p>Count data subject to truncation of this kind are common across many
+application domains: species-abundance surveys in ecology routinely
+exclude unobserved (zero-count) species, insurance claims data by
+definition only contains claims that were actually filed (excluding the
+zero-claim policies), and disease-surveillance case counts may only be
+recorded once a threshold number of cases triggers reporting. In each
+setting, naively fitting an untruncated Poisson model to such data
+biases parameter estimates, since the model does not account for the
+missing region of the support.</p>
 </div>
 <div id="existing-implementations" class="section level2">
 <h2>Existing Implementations</h2>
-<p>The <code>LaplacesDemon</code> package also provides a truncated
-Poisson distribution, with <code>dtrunc()</code>, <code>ptrunc()</code>,
-<code>qtrunc()</code>, and <code>rtrunc()</code> functions (via
-<code>spec = &quot;pois&quot;</code>) for density, distribution, quantile, and
-random-generation calculations respectively. Its PMF and CDF values
-agree with <code>truncpois</code>, but the package has two notable
-limitations that motivated design choices in <code>truncpois</code>:</p>
+<p>Several R packages offer some support for truncated distributions,
+but none combines Poisson-specific closed-form moments with fully
+general double truncation and complete log-scale support. Four are
+considered here.</p>
+<p><strong>LaplacesDemon.</strong> The <code>LaplacesDemon</code>
+package provides a truncated Poisson distribution, with
+<code>dtrunc()</code>, <code>ptrunc()</code>, <code>qtrunc()</code>, and
+<code>rtrunc()</code> functions (via <code>spec = &quot;pois&quot;</code>) for
+density, distribution, quantile, and random-generation calculations
+respectively. Its PMF and CDF values agree with <code>truncpois</code>,
+but the package has two notable limitations that motivated design
+choices in <code>truncpois</code>:</p>
 <ul>
 <li><code>ptrunc()</code> and <code>qtrunc()</code> do not support the
 <code>lower.tail</code> and <code>log.p</code> arguments that
@@ -1722,22 +1821,69 @@ limitations that motivated design choices in <code>truncpois</code>:</p>
 log-scale probability from <code>LaplacesDemon</code> requires a manual
 <code>1 - p</code> (or <code>log(1 - p)</code>) transformation, which
 risks catastrophic cancellation when the underlying probability is close
-to 1</li>
+to 1.</li>
 <li><code>LaplacesDemon</code> provides no closed-form mean, variance,
 median, or mode for the truncated Poisson distribution; obtaining these
 requires Monte Carlo simulation via <code>rtrunc()</code>, which is
 slower and introduces sampling variability that grows worse for extreme
-truncation parameters</li>
+truncation parameters.</li>
 </ul>
+<p><strong>truncdist.</strong> Notably, the same authors as the
+theoretical reference underpinning this thesis <span class="citation">(<a href="#ref-nadarajah2006">Nadarajah and Kotz
+2006</a>)</span> also released a companion R package,
+<code>truncdist</code>, providing generic <code>dtrunc()</code>,
+<code>ptrunc()</code>, <code>qtrunc()</code>, and <code>rtrunc()</code>
+wrapper functions that can truncate <em>any</em> distribution supplied
+by the <code>stats</code>, <code>stats4</code>, or <code>evd</code>
+packages, given the distribution’s name as a string argument. This
+generality is also its limitation for the present purpose: because
+<code>truncdist</code> is distribution-agnostic, it cannot exploit the
+Poisson-specific recurrence relation that <code>truncpois</code> uses to
+obtain closed-form moments, and does not provide a Poisson-specific,
+log-scale-first computational path.</p>
+<p><strong>VGAM / VGAMdata.</strong> The <code>VGAM</code> package’s
+<code>pospoisson()</code> family function fits a <em>zero-truncated</em>
+(“positive”) Poisson regression model via <code>vglm()</code>, and the
+companion <code>VGAMdata</code> package exposes the underlying
+distribution directly through <code>dpospois()</code>,
+<code>ppospois()</code>, <code>qpospois()</code>, and
+<code>rpospois()</code>. These functions are well suited to the
+zero-truncation case specifically, but do not generalize to
+right-truncation or doubly-truncated supports, and are oriented
+primarily towards the regression-modelling use case rather than
+standalone distributional computation.</p>
+<p><strong>gamlss.tr and countreg.</strong> Two further packages address
+truncation in a regression-modelling context rather than as a standalone
+distributional utility. <code>gamlss.tr</code> generates truncated
+versions of any <code>gamlss.family</code> distribution via
+<code>gen.trun()</code>, for use within the GAMLSS regression framework.
+<code>countreg</code> (currently distributed via R-Forge) provides
+<code>zerotrunc()</code> and a <code>ztpoisson</code> family object for
+fitting zero-truncated count regression models, including as the count
+component of hurdle models. Both are valuable for modelling
+covariate-dependent truncated counts, but neither provides the exact,
+closed-form moment functions of an isolated (non-regression) truncated
+Poisson distribution that this thesis is concerned with.</p>
 </div>
 <div id="why-truncpois" class="section level2">
 <h2>Why truncpois?</h2>
-<p>This <code>truncpois</code> R package addresses these shortcomings
-with: 1. The four essential probability distribution functions (d, p, q,
-r) 2. Moments calculated in an analytic manner using closed form
-formulas that make use of the Poisson recurrence formula 3. Numerically
-stable algorithms that work purely in log-space 4. Three sampling
-techniques depending on the parameter space</p>
+<p>The <code>truncpois</code> R package addresses the shortcomings
+identified above with:</p>
+<ol style="list-style-type: decimal">
+<li>The four essential probability distribution functions (d, p, q, r),
+matching base R’s naming convention, supporting left-, right-, and
+doubly-truncated supports.</li>
+<li>Moments calculated analytically using closed-form formulas that
+exploit the Poisson recurrence relation, rather than falling back to
+Monte Carlo simulation or generic numerical integration.</li>
+<li>Numerically stable algorithms that work purely in log-space,
+including full <code>lower.tail</code>/<code>log.p</code> support absent
+from <code>LaplacesDemon</code>.</li>
+<li>Three sampling techniques suited to different parameter regimes, and
+a maximum-likelihood estimator for recovering <span class="math inline">\(\lambda\)</span> from observed data – a capability
+not offered by the general-purpose truncation packages
+<code>truncdist</code> or <code>LaplacesDemon</code>.</li>
+</ol>
 <hr />
 </div>
 </div>
@@ -1774,6 +1920,23 @@ Generates independent samples from the truncated Poisson distribution
 using one of three methods.
 </dd>
 </dl>
+<div id="mathematical-basis-quantile-function" class="section level4">
+<h4>Mathematical Basis: Quantile Function</h4>
+<p>Writing <span class="math inline">\(F\)</span> for the untruncated
+Poisson CDF (<code>stats::ppois</code>) and <span class="math inline">\(F^{-1}\)</span> for its quantile function
+(<code>stats::qpois</code>), the truncated CDF is <span class="math inline">\(F_{\text{trunc}}(k) = \bigl[F(k) - F(a-1)\bigr] /
+\bigl[F(b) - F(a-1)\bigr]\)</span> for <span class="math inline">\(a
+\leq k \leq b\)</span>. Inverting this relationship for a target
+probability <span class="math inline">\(p\)</span>, the smallest <span class="math inline">\(k\)</span> satisfying <span class="math inline">\(F_{\text{trunc}}(k) \geq p\)</span> is obtained by
+solving <span class="math display">\[F(k) \;\geq\; F(a-1) +
+p\,\bigl[F(b) - F(a-1)\bigr],\]</span> so that <span class="math inline">\(k = F^{-1}\!\left(F(a-1) + p\,[F(b) -
+F(a-1)]\right)\)</span>, evaluated using the <em>untruncated</em>
+quantile function. This identity lets <code>qtruncpois()</code> delegate
+directly to <code>stats::qpois()</code> after remapping the target
+probability, rather than requiring a bespoke search procedure, and it is
+entirely equivalent to the log-scale computation performed
+internally.</p>
+</div>
 </div>
 <div id="moment-functions" class="section level3">
 <h3>Moment Functions</h3>
@@ -1801,6 +1964,33 @@ Determines the modal value using a closed-form solution that is more
 efficient than iterative search.
 </dd>
 </dl>
+<div id="mathematical-basis-closed-form-moments" class="section level4">
+<h4>Mathematical Basis: Closed-Form Moments</h4>
+<p>The moment functions exploit the well-known Poisson recurrence
+relation <span class="math inline">\(k \cdot P(X = k) = \lambda \cdot
+P(X = k - 1)\)</span>. Summing both sides over <span class="math inline">\(k = a, \dots, b\)</span> gives <span class="math display">\[\sum_{k=a}^{b} k \, P(X = k) \;=\; \lambda
+\sum_{k=a}^{b} P(X = k-1) \;=\; \lambda \bigl[F(b-1) -
+F(a-2)\bigr],\]</span> so that, after normalizing by <span class="math inline">\(P(a \leq X \leq b) = F(b) - F(a-1)\)</span>, <span class="math display">\[E[X \mid a \leq X \leq b] \;=\; \lambda \,
+\frac{F(b-1) - F(a-2)}{F(b) - F(a-1)}.\]</span> An analogous argument
+using the second-order recurrence <span class="math inline">\(k(k-1) \,
+P(X=k) = \lambda^2 \, P(X = k-2)\)</span> gives <span class="math inline">\(E[X(X-1) \mid a \leq X \leq b] = \lambda^2
+\bigl[F(b-2) - F(a-3)\bigr] / \bigl[F(b) - F(a-1)\bigr]\)</span>, from
+which <span class="math inline">\(E[X^2] = E[X(X-1)] + E[X]\)</span> and
+<span class="math inline">\(\text{Var}(X) = E[X^2] - E[X]^2\)</span>
+follow directly. Both expressions are evaluated entirely via log-scale
+differences of <code>stats::ppois()</code> calls, so no explicit
+summation over the support is ever performed – the closed forms above
+are exact regardless of how wide <span class="math inline">\([a,b]\)</span> is. The median is obtained as <span class="math inline">\(F_{\text{trunc}}^{-1}(0.5)\)</span> via the same
+quantile-inversion identity described above, and the mode follows from
+the classical result that the untruncated Poisson PMF is increasing for
+<span class="math inline">\(k &lt; \lambda\)</span> and decreasing for
+<span class="math inline">\(k &gt; \lambda\)</span> (since the ratio
+<span class="math inline">\(P(X=k)/P(X=k-1) = \lambda/k\)</span> crosses
+<span class="math inline">\(1\)</span> at <span class="math inline">\(k
+= \lambda\)</span>), giving a unique mode at <span class="math inline">\(\lfloor \lambda \rfloor\)</span> for non-integer
+<span class="math inline">\(\lambda\)</span> and tied modes at <span class="math inline">\(\{\lambda - 1, \lambda\}\)</span> for integer
+<span class="math inline">\(\lambda\)</span>, clamped to <span class="math inline">\([a,b]\)</span> where necessary.</p>
+</div>
 </div>
 <div id="parameter-estimation" class="section level3">
 <h3>Parameter Estimation</h3>
@@ -1815,6 +2005,30 @@ log-likelihood (via <code>stats::optimize()</code>), using
 value, and the sample size.
 </dd>
 </dl>
+<div id="mathematical-basis-maximum-likelihood-estimation" class="section level4">
+<h4>Mathematical Basis: Maximum Likelihood Estimation</h4>
+<p>For a sample <span class="math inline">\(x_1, \dots, x_n\)</span>
+drawn independently from a truncated Poisson distribution with known
+bounds <span class="math inline">\([a,b]\)</span>, the log-likelihood is
+<span class="math display">\[\ell(\lambda) \;=\; \sum_{i=1}^{n} \log P(X
+= x_i \mid a \leq X \leq b; \lambda) \;=\; \sum_{i=1}^{n}
+\texttt{dtruncpois}(x_i, \lambda, a, b, \texttt{log = TRUE}).\]</span>
+Rather than deriving a closed-form estimating equation for <span class="math inline">\(\hat{\lambda}\)</span>,
+<code>mletruncpois()</code> maximizes <span class="math inline">\(\ell(\lambda)\)</span> directly via
+one-dimensional numerical optimization (<code>stats::optimize()</code>),
+using the exact <code>dtruncpois()</code> values as the likelihood
+kernel at each candidate <span class="math inline">\(\lambda\)</span>.
+This is practical because the untruncated Poisson log-likelihood is well
+known to be strictly concave in <span class="math inline">\(\lambda\)</span>, and truncation – which only
+rescales the likelihood by a <span class="math inline">\(\lambda\)</span>-dependent normalizing constant –
+does not introduce the kind of multi-modality that would defeat a simple
+one-dimensional search; the search interval is seeded from the sample
+mean (scaled by a factor of <span class="math inline">\(4\)</span> in
+either direction) precisely so that the optimizer starts in the
+neighbourhood of the true value. Experiment 6 (Section 4.6) confirms
+empirically that this recovers <span class="math inline">\(\lambda\)</span> accurately across repeated
+simulation.</p>
+</div>
 </div>
 <div id="visualization-utility" class="section level3">
 <h3>Visualization Utility</h3>
@@ -1844,6 +2058,54 @@ size. 2. <strong>Inversion</strong>: Based on quantiles, using
 qtruncpois() function for any possible parameters. 3.
 <strong>Bounded</strong>: Inversion by CDF in bounds range for efficient
 sampling if bounds discard little mass.</p>
+<p>The direct method relies on the <em>Gumbel-max trick</em>: for a
+categorical distribution over a finite support with log-probabilities
+<span class="math inline">\(\{\log p_k\}_{k=a}^{b}\)</span>, drawing
+<span class="math inline">\(n\)</span> independent samples is equivalent
+to adding i.i.d. standard Gumbel noise <span class="math inline">\(g_k\)</span> to each log-probability and taking
+the arg max, i.e. <span class="math inline">\(\arg\max_k (\log p_k +
+g_k)\)</span>. This is a well-known identity for sampling from a
+categorical/softmax distribution without explicitly computing the
+normalizing constant, and it is implemented in <code>truncpois</code> by
+generating the Gumbel noise from exponential draws (<span class="math inline">\(g = -\log(\text{Exp}(1))\)</span>), which is the
+standard construction since <span class="math inline">\(-\log(\text{Exp}(1)) \sim
+\text{Gumbel}(0,1)\)</span>.</p>
+</div>
+<div id="software-engineering" class="section level3">
+<h3>Software Engineering</h3>
+<p>The package follows standard R packaging conventions to support
+maintainability and ease of installation. Source code is organized by
+responsibility: <code>truncpois.R</code> implements the four core
+distribution functions, <code>moments.R</code> the closed-form moment
+functions, <code>mle.R</code> the maximum-likelihood estimator,
+<code>plottruncpois.R</code> the visualization utility, and
+<code>zzz_utils.R</code> a set of internal (unexported) numerically
+stable helper functions – log-sum-exp, log-1-minus-exp, and the shared
+log-scale normalizing-constant computation – that are reused across the
+public-facing functions to keep the log-scale arithmetic consistent and
+centrally tested.</p>
+<p>Every exported function is documented using <code>roxygen2</code>,
+with runnable <code>@examples</code> blocks that double as informal
+usage demonstrations. Correctness is verified by an automated
+<code>testthat</code> suite covering: boundary behaviour (e.g. the PMF
+summing to exactly <span class="math inline">\(1\)</span> over the
+support, and returning exactly <span class="math inline">\(0\)</span>
+outside it); agreement with the corresponding untruncated
+<code>stats::dpois()</code>/<code>ppois()</code>/<code>qpois()</code>/<code>rpois()</code>
+functions under default bounds; the inverse relationship between
+<code>ptruncpois()</code> and <code>qtruncpois()</code>; large-sample
+convergence of <code>rtruncpois()</code> to the closed-form moments
+across all three sampling methods; input validation (e.g. errors for
+invalid <code>lambda</code> or degenerate bounds with <span class="math inline">\(a \geq b\)</span>); and a dedicated stress-test
+file exercising extreme parameter regimes, including <span class="math inline">\(\lambda = 100{,}000\)</span> and the narrowest
+possible truncation window, as demonstrated in Experiment 4. The package
+declares no hard runtime dependencies beyond base R
+(<code>Imports</code>), with <code>LaplacesDemon</code>,
+<code>microbenchmark</code>, <code>knitr</code>, and
+<code>rmarkdown</code> listed only as optional <code>Suggests</code>
+dependencies used for comparison benchmarks and vignette building.
+Development is version-controlled with git and hosted publicly on
+GitHub.</p>
 <hr />
 </div>
 </div>
@@ -1880,6 +2142,49 @@ Poisson(λ=5)</div>
 <p><strong>Conclusion</strong>: The graph on the left demonstrates that
 the mean tends to λ = 5 as the upper boundary grows larger. The graph on
 the right proves that the variance tends to λ = 5.</p>
+<p>Table 1 reports the exact closed-form mean and variance at selected
+upper bounds, computed directly via <code>extruncpois()</code> and
+<code>vartruncpois()</code>. Both moments are visibly below their
+untruncated values of <span class="math inline">\(5\)</span> for small
+<span class="math inline">\(b\)</span>, since restricting the support to
+<span class="math inline">\([0, b]\)</span> removes the right tail of
+the distribution and pulls the conditional mean and variance downward;
+by <span class="math inline">\(b = 20\)</span> both moments have
+converged to the untruncated values to within rounding precision, since
+the untruncated Poisson<span class="math inline">\((5)\)</span> places
+negligible probability mass above <span class="math inline">\(20\)</span>.</p>
+<table>
+<caption>Exact mean and variance of the right-truncated Poisson(<span class="math inline">\(\lambda=5\)</span>, <span class="math inline">\(a=0\)</span>, <span class="math inline">\(b\)</span>) at selected upper bounds, computed via
+<code>extruncpois()</code> and <code>vartruncpois()</code>.</caption>
+<thead>
+<tr class="header">
+<th align="right">Upper bound <span class="math inline">\(b\)</span></th>
+<th align="right">5</th>
+<th align="right">10</th>
+<th align="right">20</th>
+<th align="right">30</th>
+<th align="right">50</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td align="right">Mean</td>
+<td align="right">3.576</td>
+<td align="right">4.908</td>
+<td align="right">5.000</td>
+<td align="right">5.000</td>
+<td align="right">5.000</td>
+</tr>
+<tr class="even">
+<td align="right">Variance</td>
+<td align="right">1.547</td>
+<td align="right">4.440</td>
+<td align="right">5.000</td>
+<td align="right">5.000</td>
+<td align="right">5.000</td>
+</tr>
+</tbody>
+</table>
 <hr />
 </div>
 <div id="experiment-3-sampling-method-efficiency" class="section level2">
@@ -1892,12 +2197,63 @@ scenarios.</p>
 <img role="img" aria-label="Sampling Method Efficiency Benchmark" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAA4QAAAK8CAMAAACAzoF9AAAA9lBMVEUAAAAAADoAAGYAOjoAOmYAOpAAZpAAZrY6AAA6ADo6AGY6OgA6Ojo6OmY6OpA6ZpA6ZrY6kJA6kLY6kNtmAABmADpmAGZmOgBmOmZmOpBmZmZmZrZmkJBmkLZmkNtmtpBmtttmtv+QOgCQOjqQOmaQZgCQZjqQZmaQkDqQkGaQkJCQkLaQtmaQtpCQttuQ27aQ29uQ2/+Q7pCt2Oa2ZgC2Zjq2Zma2kDq2kGa2tma2ttu225C227a22/+2/7a2/9u2///bkDrbkGbbtmbbtpDb25Db2//b/7bb/9vb///wgID/tmb/tpD/25D/27b//7b//9v////7wy7rAAAgAElEQVR4nO2dDV8j2Zlfi3Z3YGbWndkF98ST7MbQtjebrNcmyzgvznjRjhObEA3S9/8yqVtVj1R6EHCh/9JfXZzzs5vXh8s91JnSG6JZAoCVxv0NALx2iBDADBECmCFCADNECGCGCAHMECGAGSIEMEOEAGaIEMAMEQKYIUIAM0QIYIYIAcwQIYAZIgQwQ4QAZogQwAwRApghQgAzRAhghggBzBAhgBkiBDBDhABmiPAl/PhN0/zbm8c/5+7szXX5//aPLi6a5rh9eds070ZfaPHdefuhrUN3Z/0n3p01haPL5fyk/bf889vRMg8veY9Z+zXa7+CkfB+LXzfN18M3Eq/nl7Vs/RbmJ6f1X+GVQYQvoO/g+KlPeqyGEmH5+NVmhFfNMyIsn9z/8yLuzo5L9f1GrkY7itfzy/ovvG0DV9X/cXh1EOELmJ+8u/mxHGnz9oz49rI9nf2bXzdvr//15KhL6B9P2jdWZ8LhHd93Z5S3/2tIaXFx9FWbTymqfcfiv7fns190ZTbH7cAfvilfYbn81/bdf9ufi47+4yrC+ArtJ79tv4Hm3Z/L91LOV+0qXQHD11turN2+7Pq+bfpz0qwLvvmr0tf85M33Pw7txOv5ZTf0/77qVnly56tvYTURy8I9iPAFzE+OflFC6E9K725uu3PTT5pycuvaKO9cR9j0Z5LulZ+cREJv/lN7VN4235YIu3NNcxoRNuNTUEzGKfOBCPvPGS4BD19vubl2+9ES3lV3KbT8Z+Byufj7f7otK3X/DB+I1/PL5WjHT+589S3EZ66+b7gHEb6A7nD76ffd6/P2iLtt3nzfXjf7xd3Z0WX7sdPlj2fN+SjC0+UP7WHYnlEu29PPKsI/tD1evfkf3Ufefb/8sT90u7NTW+dJeffRP7Vfv1zvG00OF0e7dIeLo3fD+Wpx1S+7+nrjtbuPzk+O49JuRDFEeLq6ZBuv55fdbk/WJT2689W3sJp44FI2EOHLKNekylW6xZ/+/qumHIrHy763ciiWY23WnK4jbE8i5Yjvjvb1eezNH8+Ofnfx7ofV+SSu5m0OlEuNG5MPRBiX9vrXh683+lL9RxcX7Wmzv3oXdTwrwvKfn5/87f9ZPrnz0bcQExf9yRTuQYQv5E/fNOc/nr39n38+i0Px3c0DEb653hrh9VXzVyent1siHA9siTBORinCvq1UwMaXKl/t6D8PN1OmCOsujrb7/nWJ78mdr7c0TIy+BCSI8AXMmuObcuFu1ny9/OEkH4rN39xsXhwdQsgXR8uBWg7x4eJox0aED10c3RphucC5/G99AauvN167+2h/t0b3sY0Iq2+YKV/0VxU7X29pmOBM+DBE+ALaI7m7ONr/5/7eoZhvmBlCyDfMtB/tZlc3zPSvHK8GHrphpj/JnG9GuOWGmbLkeO3uAvRF3CWycZ0w7oZYT2+/i2K94yd2vvoW4jO5TvgwRPgShhvo26uGR383XFwcXSj7x5NyT/69CJd33zRv/zi6ONoeqMfLLsLFdyf9vf9t3sd/WQ10d1H83bK/i+I/nD0aYXc99e1lvN5/vfXaw0eX3Zo940ufcYf8XdzZ8dCd9X/6qm7n6y0NE9w6+jBEKObh/+DPy51pPzTmQ3G2unP/dtvd/PP3L/72njjVcT/hgxChmIcPxeHimvdQHH17d2f3HwVz9+8uFV96Gzxi5kGIUMwjh+KPH5vm6DkPwtQza47Wp7+Z9paSxyPksaMPQ4QAZogQwAwRApghQgAzRAhghggBzBAhgBkiBDBDhABmiBDADBECmCFCADNECGCGCAHMPB1h/1wODb8NBrAbnoxwcdH/AtotT04AsBOejPDuw/XGSwDQwpkQwMzT1wmHZ/fiOiHAbuDWUQAzL4mw2Sn7W+kZiGx/MpPaDAxU3UVRnpVryw0zO/lpbkb4fz+d5r9+Ogdz3EqEuDcBiaobZhYXp0R4EBDhFKm8i+LqmAgPASKcIrV3Ucx+8iUR+iHCKVJzF0X31Mmz+/dREOHeIcIp8ik/ESLcO0Q4RYiQCMEMERIhmCFCIgQzmgiFj8YgwscgwikiivCfB9KXW1ycz+/ftbHc9r6t3xARJohwiuw8wm2DRPhSiHCK7DDCu7Pm7TflTDj/6Tdvrtu3yj2N7Yuj3/avVnxDRJggwimywwivTpe3TRfhyXn31uy4OzXevvvfnAlfCBFOkd1FWB5s2l8nLJc+7352Wd7TXxDl4uhLIcIpsrsIu9KuVhGW388/upy/v1kS4cshwimytzNh/0sYnAk/DSKcIju8n3B9nbA7J56W54oq1wnnX/6BCF8IEU6RHT5iZnERt45+Odwsejm8WFxw6+jLIMIpwsPWiBDMECERghkiJEIwQ4RECGaIkAjBzO7uonjszsBHPoEIH4MIp4goQt0PmAgfgwinyO4iLHcQvv9V05yXh6otPl72v0bR/UbFbff3ZYZHs5XXus/b8g0RYYIIp8huIzwpD5P5y8fLNrOb/tcoym9UlIewlVfbCPvH0fSfd3P/GyLCBBFOkd1G+GV3vpu1+Z2Ofo2ivNp/QsmxfWv4vPvfEBEmiHCK7CPC+fu/dJdGu1+jKK31f2Nm+IT2kioR1kKEU2QfES4+/ub9zcavUXR/+Jcz4fMhwimy07soIq5Zcxq/RlHeLFf/hlfX7yTCGohwiuzuzvpRhPMvLuPXKPpfa8q3jhJhJUQ4RXjEDBGCGSIkQjBDhEQIZoiQCMEMERIhmNndXRSKb4gIE0Q4RUQRbjtar7b+HYoVm3+nYvUWET4GEU4RIiRCMLPLCL/tfj9p4/74+KWl/o/FLNd/Jaa8df8bIsIEEU6RXUa45ZFp8UtL/RMDD38lJt66/w0RYYIIp8iOL45enW8+Rnt4MTxF/vDrTcNbW74hIkwQ4RTZYYTfXQ5/EGb020qjFyXQ0a83XRFhBUQ4RXZ4F0WbVTnbPXYm7H+9iTNhNUQ4RXZ4Z/3V+BksyiXP2ZvV71WsrxOOriHe/6JEmCDCKbLLCL+NPwFTbgGdNc1ff1hF2P+xmPgrMcNb978oESaIcIrwsDUiBDNESIRghgiJEMwQIRGCGSIkQjBDhEQIZoiQCMEMERIhmPmkCHfCxgqKY44IkxD3JiBxcGfCzRUUxxwRJiHuTUCCCIkQzBAhEYIZIiRCMEOERAhmiJAIwQwREiGYIUIiBDNESIRghgiJEMwQIRGCGSIkQjBDhEQIZoiQCMEMERIhmCFCIgQzREiEYIYIiRDMECERghkiJEIwQ4RECGaIkAjBDBESIZghQiIEM0RIhGCGCIkQzBAhEYIZIiRCMEOERAhmiJAIwQwREiGYIUIiBDNESIRghgiJEMwQIRGCGSIkQjBDhEQIZoiQCMEMERIhmCFCIgQzREiEYIYIiRDMECERghkiJEIwQ4RECGaIkAjBDBESIZghQiIEM0RIhGCGCIkQzBAhEYIZIiRCMEOERAhmiJAIwQwREiGYIUIiBDNESIRghgiJEMwQIRGCGSIkQjBDhEQIZoiQCMEMERIhmCFCIgQzREiEYIYIiRDMECERghkiJEIwQ4RECGaIkAjBDBESIZghQiIEM0RIhGCGCIkQzBAhEYIZIiRCMPPkT+Tuw/Xy7qxp3t08f/aTIcIEEU6RmghLh8v518+f/WSIMEGEU6Qmwvn7m/6M+NzZT4YIE0Q4RZ6O8Ozod78sZ8L39y6PEuHeIcIpUvETWVw0x8vbN/dOhES4f4hwinDrKBGCmZf8RJpA/t3cW0lxzBFhEuLeBCQ4ExIhmCFCIgQzFbeODpc9798yQ4R7hwinyNM/kcXF6YtnPxUiTBDhFKn4idz97PLFs58IESaIcIpwnZAIwQwREiGYIUIiBDNESIRghgiJEMwQIRGCGSIkQjBDhEQIZoiQCMEMERIhmCFCIgQzREiEYIYIiRDMECERghkiJEIwQ4RECGaIkAjBDBESIZghQiIEM0RIhGCGCIkQzBAhEYIZIiRCMEOERAhmiJAIwQwREiGYIUIiBDNESIRghgiJEMwQIRGCGSIkQjBDhEQIZoiQCMEMERIhmCFCIgQzREiEYIYIiRDMECERghkiJEIwQ4RECGaIkAjBDBESIZghQiIEM0RIhGCGCIkQzBAhEYIZIiRCMEOERAhmiJAIwQwREiGYIUIiBDNESIRghgiJEMwQIRGCGSIkQjBDhEQIZoiQCMEMERIhmCFCIgQzREiEYIYIiRDMECERghkiJEIwQ4RECGaIkAjBDBESIZghQiIEM0RIhGCGCIkQzBAhEYIZIiRCMEOERAhmiJAIwQwREiGYIUIiBDNESIRghgiJEMwQIRGCGSIkQjBDhEQIZoiQCMEMERIhmCFCIgQzREiEYIYIiRDMDD+R26Zw/qLZHUKECSKcIt1P5LY5Li8WF8/LkAj3DhFOkfITufv5Tbz5++tnzu4WIkwQ4RThOiERgpnhJzJ7dzPjOiERgoP+J3L3s8v2f/Mvn3NhlAgNEOEUGSL8cN2eC4mQCMFAXBxtji5vuThKhGCAG2aIEMwQIRGCme5+wrOm5w3XCYkQ9s7wE7k6bf+ZHb9odocQYYIIp8jq1tHVv8+d3SVEmCDCKdL/RBYX3Znw3c3jn7x1dpcQYYIIp8jwE1lctFcJn3lplAj3DxFOEW4dJUIwQ4RECGY2fqmXuyiIEPbPcOvo2TMfsTaa3SVEmCDCKTK+i+Jls7uECBNEOEXGd9a/cHaHEGGCCKdIXBzlOiERggluHSVCMEOERAhmxo+Yeeaj1ohw/xDhFOGxo0QIZvgtCiIEM5wJiRDMcJ2QCMEMt44SIZghQiIEM6vfojhfzo4uXzS7Q4gwQYRTZPU0+O2/PAM3EYKBuHW0/CrTLbeOEiHsn+En0j2C+5mP3ybC/UOEU4QbZogQzBAhEYKZ9Z317/7c3Trz/NkdQoQJIpwiq4etzd/fcMMMEYKB1QO42wh5ADcRgoHxmZAHcBMhGOAB3EQIZrh1lAjBzNM/kfnJQ8/ERoR7hwinyPATaa8Ozppm29Nw949o2/qYNiLcO0Q4RVYP4G7/t/UB3HGT6ZabTolw7xDhFFndRdGeC7dGyJmQCGG3xMXR5ujyduvF0UeenZsI9w4RThFuHSVCMPOSn0gTyL+beyspjrlDibBRoBCi2IwCiRAFdhHLco3wj/xBmD1E+M+fzrQiRMggwjRbuYJCMREmIYrNKEBIiHjqE4bbZbadJonweZvhmNsEISFi+Whny3h27odmdwsRTvGYCxASIp7+lLuHftmXCJ+3GY65TRASIkyzlSsoFBNhEqLYjAKEhIjlUxdHH5/dLUQ4xWMuQEiIMM1WrqBQTIRJiGIzChASIkyzlSsoFBNhEqLYjAKEhIgld9YToQeEhAjTbOUKCsVEmIQoNqMAISGif3HLmZAI9w1CQkT374N3BVbM7hIinOIxFyAkRHT/PvcZR8ezu4QIp3jMBQgJEf2L2UMPTauY3SFEOMVjLkBIiOhfzLhOSIT7BiEhovuX64REuH8QEiK6f7lOSIT7ByEhon/BdUIi3DsICRHdvw8/o9rTs7uECKd4zAUICRGm2coVFIqJMAlRbEYBQkJE+/+7f7968/fPORcS4fM2wzG3CUJCRPnntjkuLxYX25/+99HZnUKEUzzmAoSEiP5F/9jRZyVIhM/dDMfcJggJEabZyhUUiokwCVFsRgFCQoRptnIFhWIiTEIUm1GAkBBhmq1cQaGYCJMQxWYUICREmGYrV1AoJsIkRLEZBQgJEabZyhUUiokwCVFsRgFCQkT/YnHRvPvzcx/FTYTP2wzH3CYICRHdv4uL0/n7my1/jLdidpcQ4RSPuQAhIaL79+7DdRvhc3+XggiftxmOuU0QEiK6f/sz4YwzIRHuEYSEiP5Fe52waZ7ZIBE+czMcc5sgJESYZitXUCgmwiREsRkFCAkR/Qued5QI9w5CQkT3L88xQ4T7ByEhovuX55ghwv2DkBDRv+A5Zohw7yAkRPQveN5RItw7CAkR3b9cJyTC/YOQENH9y3VCItw/CAkR/QuuExLh3kFIiOj+5XlHiXD/ICREmGYrV1AoJsIkRLEZBQgJEabZyhUUiokwCVFsRgFCQsSy3CzzRy6OEuHeQUiIMM1WrqBQTIRJiGIzChASIpYvvYOCCJ+7GY65TRASIpZESIQeEBIilkRIhB4QEiKWq3sJuWGGCPcKQkLEkjMhEXpASIhYEiERekBIiFgSIRF6QEiIMM1WrqBQTIRJiGIzChASIkyzlSsoFBNhEqLYjAKEhAjTbOUKCsVEmIQoNqMAISHCNFu5gkIxESYhis0oQEiIMM1WrqBQTIRJiGIzChASIkyzlSsoFBNhEqLYjAKEhAjTbOUKCsVEmIQoNqMAISHCNFu5gkIxESYhis0oQEiIMM1WrqBQTIRJiGIzChASIkyzlSsoFBNhEqLYjAKEhAjTbOUKCsVEmIQoNqMAISHCNFu5gkIxESYhis0oQEiIMM1WrqBQTIRJiGIzChASIkyzlSsoFBNhEqLYjAKEhAjTbOUKCsVEmIQoNqMAISHCNFu5gkIxESYhis0oQEiIMM1WrqBQTIRJiGIzChASIkyzlSsoFBNhEqLYjAKEhAjTbOUKCsVEmIQoNqMAISHCNFu5gkIxESYhis0oQEiIMM1WrqBQTIRJiGIzChASIkyzlSsoFBNhEqLYjAKEhAjTbOUKCsVEmIQoNqMAISHCNFu5gkIxESYhis0oQEiIMM1WrqBQTIRJiGIzChASIkyzlSsoFBNhEqLYjAKEhAjTbOUKCsVEmIQoNqMAISHCNFu5gkIxESYhis0oQEiIMM1WrqBQTIRJiGIzChASIkyzlSsoFBNhEqLYjAKEhAjTbOUKCsVEmIQoNqMAISHCNFu5gkIxESYhis0oQEiIMM1WrqBQTIRJiGIzChASIkyzlSsoFBNhEqLYjAKEhAjTbOUKCsVEmIQoNqMAISHCNFu5gkIxESYhis0oQEiIMM1WrqBQTIRJiGIzChASIkyzlSsoFBNhEqLYjAKEhAjTbOUKCsVEmIQoNqMAISHCNFu5gkIxESYhis0oQEiIMM1WrqBQTIRJiGIzChASIkyzlSsoFBNhEqLYjAKEhAjTbOUKCsVEmIQoNqMAISHCNFu5gkIxESYhis0oQEiIMM1WrqBQTIRJiGIzChASIkyzlSsoFBNhEqLYjAKEhAjTbOUKCsVEmIQoNqMAISHCNFu5gkIxESYhis0oQEiIMM1WrqBQTIRJiGIzChASIkyzlSsoFBNhEqLYjAKEhAjTbOUKCsVEmIQoNqMAISHCNFu5gkIxESYhis0oQEiIMM1WrqBQTIRJiGIzChASIkyzlSsoFBNhEqLYjAKEhAjTbOUKCsVEmIQoNqMAISHCNFu5gkIxESYhis0oQEiIMM1WrqBQTIRJiGIzChASIkyzlSsoFBNhEqLYjAKEhAjTbOUKCsVEmIQoNqMAISHCNFu5gkIxESYhis0oQEiIMM1WrqBQTIRJiGIzChASIkyzlSsoFBNhEqLYjAKEhAjTbOUKCsVEmIQoNqMAISHCNFu5gkIxESYhis0oQEiIMM1WrqBQTIRJiGIzChASIkyzlSsoFBNhEqLYjAKEhAjTbOUKCsVEmIQoNqMAISHCNFu5gkIxESYhis0oQEiIMM1WrqBQTIRJiGIzChASIkyzlSsoFBNhEqLYjAKEhAjTbOUKCsVEmIQoNqMAISHCNFu5gkIxESYhis0oQEiIMM1WrqBQTIRJiGIzChASIkyzlSsoFBNhEqLYjAKEhAjTbOUKCsVEmIQoNqMAISHCNFu5gkIxESYhis0oQEiIMM1WrqBQTIRJiGIzChASIkyzlSsoFBNhEqLYjAKEhAjTbOUKCsVEmIQoNqMAISHCNFu5gkIxESYhis0oQEiIMM1WrqBQTIRJiGIzChASIkyzlSsoFBNhEqLYjAKEhAjTbOUKCsVEmIQoNqMAISHiqU+4+3C9vDtrmnc3z5/9ZIhwisdcgJAQ8dQntBGWDpfzr58/+8kQ4RSPuQAhIeKpT2gLnL+/6c+IMRPs9ltbEuE0j7kAISHiqU+4Ozv63S/LmfD9vcujRPi8zXDMbYKQEPH0pywumuPl7Zvrex8gwudthmNuE4SECNNs5QoKxUSYhCg2owAhIcI0W7mCQjERJiGKzShASIgwzVauoFBMhEmIYjMKEBIiTLOVKygUE2ESotiMAoSECNNs5QoKxUSYhCg2owAhIcI0W7mCQjERJiGKzShASIgwzVauoFBMhEmIYjMKEBIiTLOVKygUE2ESotiMAoSECNNs5QoKxUSYhCg2owAhIcI0W7mCQjERJiGKzShASIgwzVauoFBMhEmIYjMKEBIiTLOVKygUE2ESotiMAoSECNNs5QoKxUSYhCg2owAhIcI0W7mCQjERJiGKzShASIgwzVauoFBMhEmIYjMKEBIiTLOVKygUE2ESotiMAoSECNNs5QoKxUSYhCg2owAhIcI0W7mCQjERJiGKzShASIgwzVauoFBMhEmIYjMKEBIiTLOVKygUE2ESotiMAoSECNNs5QoKxUSYhCg2owAhIcI0W7mCQjERJiGKzShASIgwzVauoFBMhEmIYjMKEBIiTLOVKygUE2ESotiMAoSECNNs5QoKxUSYhCg2owAhIcI0W7mCQjERJiGKzShASIgwzVauoFBMhEmIYjMKEBIiTLOVKygUE2ESotiMAoSECNNs5QoKxUSYhCg2owAhIcI0W7mCQjERJiGKzShASIgwzVauoFBMhEmIYjMKEBIiTLOVKygUE2ESotiMAoSECNNs5QoKxUSYhCg2owAhIcI0W7mCQjERJiGKzShASIgwzVauoFBMhEmIYjMKEBIiTLOVKygUE2ESotiMAoSECNNs5QoKxUSYhCg2owAhIcI0W7mCQjERJiGKzShASIgwzVauoFBMhEmIYjMKEBIiTLOVKygUE2ESotiMAoSECNNs5QoKxUSYhCg2owAhIcI0W7mCQjERJiGKzShASIgwzVauoFBMhEmIYjMKEBIiTLOVKygUE2ESotiMAoSECNNs5QoKxUSYhCg2owAhIcI0W7mCQjERJiGKzShASIgwzVauoFBMhEmIYjMKEBIiTLOVKygUE2ESotiMAoSECNNs5QoKxUSYhCg2owAhIcI0W7mCQjERJiGKzShASIgwzVauoFBMhEmIYjMKEBIiTLOVKygUE2ESotiMAoSECNNs5QoKxUSYhCg2owAhIcI0W7mCQjERJiGKzShASIgwzVauoFBMhEmIYjMKEBIiTLOVKygUE2ESotiMAoSECNNs5QoKxUSYhCg2owAhIcI0W7mCQjERJiGKzShASIgwzVauoFBMhEmIYjMKEBIiTLOVKygUE2ESotiMAoSECNNs5QoKxUSYhCg2owAhIcI0W7mCQjERJiGKzShASIgwzVauoFBMhEmIYjMKEBIiTLOVKygUE2ESotiMAoSECNNs5QoKxUSYhCg2owAhIcI0W7mCQjERJiGKzShASIgwzVauoFBMhEmIYjMKEBIiTLOVKygUE2ESotiMAoSECNNs5QoKxUSYhCg2owAhIcI0W7mCQjERJiGKzShASIgwzVauoFBMhEmIYjMKEBIiTLOVKygUE2ESotiMAoSECNNs5QoKxUSYhCg2owAhIcI0W7mCQjERJiGKzShASIgwzVauoFBMhEmIYjMKEBIiTLOVKygUE2ESotiMAoSECNNs5QoKxUSYhCg2owAhIcI0W7mCQjERJiGKzShASIgwzVauoFBMhEmIYjMKEBIiTLOVKygUE2ESotiMAoSECNNs5QoKxUSYhCg2owAhIcI0W7mCQjERJiGKzShASIgwzVauoFBMhEmIYjMKEBIiTLOVKygUE2ESotiMAoSECNNs5QoKxUSYhCg2owAhIcI0W7mCQjERJiGKzShASIgwzVauoFBMhEmIYjMKEBIiTLOVKygUE2ESotiMAoSECNNs5QoKxUSYhCg2owAhIcI0W7mCQjERJiGKzShASIgwzVauoFBMhEmIYjMKEBIiTLOVKygUE2ESotiMAoSECNNs5QoKxUSYhCg2owAhIcI0W7mCQjERJiGKzShASIgwzVauoFBMhEmIYjMKEBIiTLOVKygUE2ESotiMAoSECNNs5QoKxUSYhCg2owAhIcI0W7mCQjERJiGKzShASIgwzVauoFBMhEmIYjMKEBIiTLOVKygUE2ESotiMAoSECNNs5QoKxUSYhCg2owAhIcI0W7mCQjERJiGKzShASIgwzVauoFBMhEmIYjMKEBIiTLOVKygUE2ESotiMAoSECNNs5QoKxUSYhCg2owAhIcI0W7mCQjERJiGKzShASIgwzVauoFBMhEmIYjMKEBIiTLOVKygUE2ESotiMAoSECNNs5QoKxUSY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" alt="Sampling Method Efficiency Benchmark" />
 <div class="figcaption">Sampling Method Efficiency Benchmark</div>
 </div>
-<p><strong>Interpretation</strong>: Direct Method is the quickest
-approach for small supports, but not scalable for large supports.
-Inversion Method performs consistently irrespective of the situation.
-Bounded Method works best when the amount of truncated probabilities is
-minimal. One can choose an approach depending on the parameter
-regime.</p>
+<p>Table 2 reports mean wall-clock time (milliseconds) to draw <span class="math inline">\(200{,}000\)</span> samples under each method and
+scenario, averaged over 5 repetitions to smooth out timer noise.</p>
+<table>
+<caption>Mean time (ms) to draw 200,000 samples per method and scenario,
+averaged over 5 repetitions.</caption>
+<colgroup>
+<col width="25%" />
+<col width="25%" />
+<col width="25%" />
+<col width="25%" />
+</colgroup>
+<thead>
+<tr class="header">
+<th align="left">Method</th>
+<th align="right">Small (<span class="math inline">\(\lambda=5\)</span>,
+[0,10])</th>
+<th align="right">Bounded (<span class="math inline">\(\lambda=50\)</span>, [40,60])</th>
+<th align="right">Heavy (<span class="math inline">\(\lambda=100\)</span>, [90,110])</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td align="left">Direct</td>
+<td align="right">164</td>
+<td align="right">306</td>
+<td align="right">338</td>
+</tr>
+<tr class="even">
+<td align="left">Inversion</td>
+<td align="right">192</td>
+<td align="right">288</td>
+<td align="right">302</td>
+</tr>
+<tr class="odd">
+<td align="left">Bounded</td>
+<td align="right">108</td>
+<td align="right">136</td>
+<td align="right">156</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Interpretation</strong>: Across all three tested scenarios,
+the bounded method is consistently the fastest, since it performs a
+single vectorized CDF-inversion pass through the untruncated Poisson
+quantile function without ever enumerating the support. The direct
+method must first enumerate the finite support and generate an
+independent Gumbel variate per sample per support point, so its cost
+grows with both the sample size and the width of <span class="math inline">\([a,b]\)</span>; it is competitive only when the
+support is narrow. The inversion method sits between the two, incurring
+the overhead of <code>qtruncpois()</code>’s probability remapping on
+every draw but scaling well as <span class="math inline">\(\lambda\)</span> and the truncation window grow.
+In practice, the bounded method is a strong default across all regimes
+tested here, while the inversion and direct methods remain useful as
+general-purpose alternatives – inversion as a simple, transparent
+fallback built directly on <code>qtruncpois()</code>, and direct where
+an explicit enumeration of the support is preferred over relying on
+floating-point CDF evaluation.</p>
 <hr />
 </div>
 <div id="experiment-4-numerical-stability-demonstration" class="section level2">
@@ -1919,6 +2275,72 @@ the narrowest possible truncation window remains numerically
 well-behaved. Traditional naive implementations would produce zero or
 underflow errors in these regimes; <code>truncpois</code> handles them
 seamlessly via log-space arithmetic.</p>
+<table>
+<caption>Log-PMF at <span class="math inline">\(\lfloor\lambda\rfloor\)</span> for each tested
+parameter regime, computed via <code>dtruncpois(..., log = TRUE)</code>.
+These particular evaluation points sit near the mode of each regime and
+so are not themselves at risk of underflow; the numerical-stability
+benefit of computing entirely on the log scale is most apparent instead
+when evaluating the normalizing constant <span class="math inline">\(F(b) - F(a-1)\)</span> for windows placed further
+into the tails of very large-<span class="math inline">\(\lambda\)</span> distributions, where a naive
+linear-scale subtraction of two near-identical cumulative probabilities
+is vulnerable to catastrophic cancellation – a risk that log-scale
+differencing (via the <code>.log_diff()</code> helper in
+<code>zzz_utils.R</code>) avoids entirely, regardless of where the
+window is placed.</caption>
+<thead>
+<tr class="header">
+<th align="right"><span class="math inline">\(\lambda\)</span></th>
+<th align="right"><span class="math inline">\(a\)</span></th>
+<th align="right"><span class="math inline">\(b\)</span></th>
+<th align="right">Log-PMF at <span class="math inline">\(\lfloor\lambda\rfloor\)</span></th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td align="right">10</td>
+<td align="right">0</td>
+<td align="right">20</td>
+<td align="right"><span class="math inline">\(-2.077\)</span></td>
+</tr>
+<tr class="even">
+<td align="right">50</td>
+<td align="right">40</td>
+<td align="right">60</td>
+<td align="right"><span class="math inline">\(-2.730\)</span></td>
+</tr>
+<tr class="odd">
+<td align="right">100</td>
+<td align="right">90</td>
+<td align="right">110</td>
+<td align="right"><span class="math inline">\(-2.875\)</span></td>
+</tr>
+<tr class="even">
+<td align="right">200</td>
+<td align="right">190</td>
+<td align="right">210</td>
+<td align="right"><span class="math inline">\(-2.956\)</span></td>
+</tr>
+<tr class="odd">
+<td align="right">500</td>
+<td align="right">490</td>
+<td align="right">510</td>
+<td align="right"><span class="math inline">\(-3.008\)</span></td>
+</tr>
+<tr class="even">
+<td align="right">100,000</td>
+<td align="right">99,500</td>
+<td align="right">100,500</td>
+<td align="right"><span class="math inline">\(-6.555\)</span></td>
+</tr>
+<tr class="odd">
+<td align="right">5 <em>(narrowest window)</em></td>
+<td align="right">3</td>
+<td align="right">4</td>
+<td align="right"><span class="math inline">\(-0.811\)</span></td>
+</tr>
+</tbody>
+</table>
 <hr />
 </div>
 <div id="experiment-5-zero-truncated-poisson-application" class="section level2">
@@ -1937,6 +2359,21 @@ overlay, a Q-Q plot validating distributional fit, a comparison of
 theoretical vs. empirical moments, and a bootstrap distribution of the
 sample mean. All demonstrate good agreement between theory and
 simulation.</p>
+<p>This scenario is representative of the applied use case motivating
+the package: a count variable (e.g. number of insurance claims, or
+number of hospital visits) that is only observed conditional on being at
+least <span class="math inline">\(1\)</span>. Fitting a standard,
+untruncated Poisson model to such data without accounting for the
+missing zero category would systematically underestimate <span class="math inline">\(\lambda\)</span>, since the observed sample mean
+of <span class="math inline">\(2.72\)</span> (bootstrap distribution,
+right panel) is itself already a biased estimator of the
+<em>untruncated</em> rate parameter – it estimates the conditional mean
+<span class="math inline">\(E[X \mid X \geq 1]\)</span>, which is always
+strictly greater than <span class="math inline">\(\lambda\)</span>
+itself. This is precisely the distinction that motivates using
+<code>extruncpois()</code> (or <code>mletruncpois()</code>, demonstrated
+next) rather than the sample mean directly when the untruncated rate
+parameter is of scientific interest.</p>
 <hr />
 </div>
 <div id="experiment-6-mle-parameter-recovery" class="section level2">
@@ -1960,6 +2397,118 @@ evaluated at the fitted <span class="math inline">\(\lambda\)</span>
 closely tracks the empirical sample proportions. This confirms that
 <code>rtruncpois()</code>, <code>mletruncpois()</code>, and the
 closed-form moment functions are mutually consistent.</p>
+<p>The fitted value was <span class="math inline">\(\hat{\lambda} =
+6.037\)</span> against a true generating <span class="math inline">\(\lambda = 6\)</span>, from <span class="math inline">\(n = 5{,}000\)</span> samples (<span class="math inline">\(\log\)</span>-likelihood at <span class="math inline">\(\hat\lambda\)</span>: <span class="math inline">\(-11{,}184.6\)</span>). Table 4 compares the sample
+moments directly against the theoretical moments evaluated at <span class="math inline">\(\hat\lambda\)</span> via
+<code>extruncpois()</code>, <code>vartruncpois()</code>,
+<code>medtruncpois()</code>, and <code>modtruncpois()</code>.</p>
+<table>
+<caption>Sample moments of the simulated data versus theoretical moments
+evaluated at the fitted <span class="math inline">\(\hat\lambda =
+6.037\)</span>.</caption>
+<thead>
+<tr class="header">
+<th align="left">Statistic</th>
+<th align="right">Sample</th>
+<th align="right">Theoretical (at <span class="math inline">\(\hat\lambda\)</span>)</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td align="left">Mean</td>
+<td align="right">6.120</td>
+<td align="right">6.120</td>
+</tr>
+<tr class="even">
+<td align="left">Variance</td>
+<td align="right">5.497</td>
+<td align="right">5.615</td>
+</tr>
+<tr class="odd">
+<td align="left">Median</td>
+<td align="right">6</td>
+<td align="right">6</td>
+</tr>
+<tr class="even">
+<td align="left">Mode</td>
+<td align="right">6</td>
+<td align="right">6</td>
+</tr>
+</tbody>
+</table>
+<p>The close agreement across all four moments – particularly the mean,
+which matches to three decimal places since <span class="math inline">\(\hat\lambda\)</span> was itself chosen to maximize
+the likelihood of the observed sample – provides an internal consistency
+check spanning three separate parts of the package: random generation
+(<code>rtruncpois()</code>), estimation (<code>mletruncpois()</code>),
+and the closed-form moment functions, all evaluated independently of one
+another yet arriving at compatible answers.</p>
+<hr />
+</div>
+</div>
+<div id="discussion" class="section level1">
+<h1>Discussion</h1>
+<div id="limitations" class="section level2">
+<h2>Limitations</h2>
+<p>While <code>truncpois</code> addresses the specific gaps identified
+in Section 2.2, several limitations remain and are worth stating
+explicitly.</p>
+<ul>
+<li><strong>Single-distribution scope.</strong> The package currently
+supports only the truncated Poisson distribution. Many of the same
+numerical-stability and closed-form-moment arguments apply equally to
+other truncated discrete distributions (negative binomial, binomial,
+geometric), but these are not yet implemented; a user needing truncated
+negative-binomial support, for instance, would need to look elsewhere
+(or to the generic, non-closed-form <code>truncdist</code>
+package).</li>
+<li><strong>No covariate-dependent estimation.</strong>
+<code>mletruncpois()</code> estimates a single scalar <span class="math inline">\(\lambda\)</span> from a homogeneous sample with
+fixed, known truncation bounds. It does not support regression-style
+modelling where <span class="math inline">\(\lambda\)</span> depends on
+covariates, unlike the dedicated regression frameworks
+<code>countreg::zerotrunc()</code> and <code>gamlss.tr</code>. Extending
+<code>truncpois</code> to a regression setting would require
+substantially different machinery (e.g. IRLS or full likelihood
+optimization over a coefficient vector) beyond the one-dimensional
+<code>stats::optimize()</code> approach used here.</li>
+<li><strong>Optimization-based (not closed-form) MLE.</strong> Unlike
+the moment functions, <code>mletruncpois()</code> relies on numerical
+maximization of the log-likelihood rather than a closed-form estimating
+equation. Although the search interval is seeded near the sample mean
+and the truncated Poisson likelihood is well-behaved in practice
+(Section 4.6), this has not been formally proven to guarantee global
+convergence in all conceivable edge cases, e.g. very small samples with
+heavily truncated support.</li>
+<li><strong>No compiled backend.</strong> All computation is implemented
+in base R; a compiled (e.g. Rcpp) backend was considered out of scope
+for this thesis but could offer speed benefits for very large-scale
+simulation workloads, particularly for the direct sampling method, whose
+cost scales with support width (Section 4.3).</li>
+<li><strong>Not yet on CRAN.</strong> The package is currently
+distributed via GitHub only, has not undergone
+<code>R CMD check --as-cran</code> submission review, and has not been
+exposed to the broader scrutiny (and edge-case bug reports) that CRAN
+release and public usage would bring.</li>
+</ul>
+</div>
+<div id="conclusions" class="section level2">
+<h2>Conclusions</h2>
+<p>The experiments in Section 4 collectively demonstrate that
+<code>truncpois</code> behaves correctly and stably across the parameter
+regimes it was designed for: PMF and CDF values agree with the standard
+Poisson distribution functions under default (untruncated) bounds,
+closed-form moments converge to their untruncated counterparts as the
+truncation window widens, all three sampling algorithms converge to the
+correct closed-form moments at large sample sizes, log-scale
+computations remain well-behaved even at <span class="math inline">\(\lambda = 100{,}000\)</span> and under the
+narrowest possible truncation window, and the maximum-likelihood
+estimator recovers the true generating parameter from simulated data.
+Taken together with the literature comparison in Section 2.2, these
+results support the central claim of this thesis: that
+<code>truncpois</code> fills a real gap in R’s ecosystem for exact,
+numerically stable, Poisson-specific truncated-distribution
+computation.</p>
 <hr />
 </div>
 </div>

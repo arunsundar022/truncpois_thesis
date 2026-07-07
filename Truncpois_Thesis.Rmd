@@ -271,7 +271,9 @@ Rather than deriving a closed-form estimating equation for $\hat{\lambda}$, `mle
 ### Visualization Utility
 
 **plottruncpois()** – Distribution Plotting
-: Plots the PMF, CDF, or quantile function of a truncated Poisson distribution, with an optional overlay of the corresponding untruncated Poisson distribution for direct visual comparison.
+: Plots the PMF, CDF, or quantile function of a truncated Poisson distribution, with an optional overlay of the corresponding untruncated Poisson distribution for direct visual comparison. Experiment 1 (Section 4.1) already demonstrates the PMF plot type; the remaining two types are shown below.
+
+![CDF and quantile function plots via plottruncpois(), TruncPois(λ=5, a=2, b=10) overlaid against Poisson(5)](Figures/plottruncpois_cdf_quantile.png)
 
 ### Design Principles
 

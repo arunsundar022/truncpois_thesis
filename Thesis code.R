@@ -1,11 +1,9 @@
-# Install truncpois package
 devtools::install_github("arunsundar022/truncpois")
 library(truncpois)
 
 dir.create("Figures", showWarnings = FALSE)
 dir.create("RData", showWarnings = FALSE)
 
-# PMF visualization (via the package's own plottruncpois() utility)
 png("Figures/01_pmf_visualization.png", width=900, height=700)
 plottruncpois(lambda = 5, b = 10)
 dev.off()
@@ -172,6 +170,45 @@ barplot(rbind(Empirical = emp_prop6, Theoretical = theo_prop6),
 dev.off()
 
 cat("Fitted lambda:", fit6$lambda, " | True lambda:", lambda_true, "\n")
+
+# dtruncpois(): PMF sums to exactly 1 over the support
+upper <- qtruncpois(1 - 1e-12, a = 1, lambda = 6)
+pmf_sum <- sum(dtruncpois(seq(1, upper, by = 1), a = 1, lambda = 6))
+cat("dtruncpois() validity check: PMF sums to", pmf_sum, "over the support\n")
+
+# ptruncpois(): lower.tail and log.p combinations
+p_lower     <- ptruncpois(7, lambda = 5, a = 2, b = 10)
+p_upper     <- ptruncpois(7, lambda = 5, a = 2, b = 10, lower.tail = FALSE)
+p_upper_log <- ptruncpois(7, lambda = 5, a = 2, b = 10, lower.tail = FALSE, log.p = TRUE)
+p_lower_log <- ptruncpois(10, lambda = 5, a = 2, b = 10, log.p = TRUE)
+cat("ptruncpois() tail/log demonstrations:\n")
+print(c(lower_tail = p_lower, upper_tail = p_upper,
+        upper_tail_log = p_upper_log, lower_tail_log = p_lower_log))
+
+# qtruncpois(): round-trip check against ptruncpois(), plus log.p and upper-tail variants
+p_seq        <- seq(0.1, 0.9, by = 0.2)
+q_vals       <- qtruncpois(p_seq, lambda = 10, a = 5, b = 15)
+cdf_at_q     <- ptruncpois(q_vals, lambda = 10, a = 5, b = 15)
+q_from_logp  <- qtruncpois(log(p_seq), lambda = 10, a = 5, b = 15, log.p = TRUE)
+q_upper_tail <- qtruncpois(p_seq, lambda = 10, a = 5, b = 15, lower.tail = FALSE)
+cat("qtruncpois() round-trip check (cdf_at_q should be >= target p):\n")
+print(rbind(target_p = p_seq, quantile = q_vals, cdf_at_q = round(cdf_at_q, 4)))
+cat("qtruncpois() log.p input matches linear-scale input:", all(q_from_logp == q_vals), "\n")
+cat("qtruncpois() upper-tail quantiles:", q_upper_tail, "\n")
+
+# modtruncpois(): non-integer lambda (unique mode) vs integer lambda (tied modes, warns)
+cat("modtruncpois() non-integer lambda (unique mode):\n")
+print(modtruncpois(lambda = 2.5, a = 0, b = 10))
+cat("modtruncpois() integer lambda (tied modes, warning expected):\n")
+print(suppressWarnings(modtruncpois(lambda = 5, a = 0, b = 10)))
+
+# plottruncpois(): cdf and quantile plot types (pmf type already shown above)
+png("Figures/plottruncpois_cdf_quantile.png", width=1400, height=700)
+par(mfrow = c(1, 2))
+plottruncpois(lambda = 5, a = 2, b = 10, type = "cdf")
+plottruncpois(lambda = 5, a = 2, b = 10, type = "quantile")
+par(mfrow = c(1, 1))
+dev.off()
 
 moment_convergence <- data.frame(bound = bounds, mean = means, variance = variances)
 sampling_timing_ms <- timing_matrix

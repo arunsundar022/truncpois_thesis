@@ -5,7 +5,7 @@ library(LaplacesDemon)
 dir.create("Figures", showWarnings = FALSE)
 
 # Exp 1: PMF plot, no title, a/b shown in legend instead
-png("Figures/01_pmf_visualization.png", width = 900, height = 700)
+png("Figures/01_pmf_visualisation.png", width = 900, height = 700)
 plottruncpois(lambda = 5, b = 10, main = "")
 legend("topleft", legend = "a = 0, b = 10", bty = "n")
 dev.off()

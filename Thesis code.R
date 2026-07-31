@@ -275,8 +275,8 @@ print(suppressWarnings(modtruncpois(lambda = 5, a = 0, b = 10)))
 # plottruncpois: cdf and quantile plot types
 png("Figures/plottruncpois_cdf_quantile.png", width = 1400, height = 700)
 par(mfrow = c(1, 2))
-plottruncpois(lambda = 5, a = 2, b = 10, type = "cdf")
-plottruncpois(lambda = 5, a = 2, b = 10, type = "quantile")
+plottruncpois(lambda = 5, a = 2, b = 10, type = "cdf", main = "")
+plottruncpois(lambda = 5, a = 2, b = 10, type = "quantile", main = "")
 par(mfrow = c(1, 1))
 dev.off()
 

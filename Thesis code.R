@@ -1,13 +1,12 @@
-devtools::install_github("arunsundar022/truncpois")
+pak::pak("arunsundar022/truncpois")
 library(truncpois)
 library(LaplacesDemon)
 
 dir.create("Figures", showWarnings = FALSE)
 
-# Exp 1: PMF plot, no title, a/b shown in legend instead
+# Exp 1: PMF plot, no title, a/b shown in legend
 png("Figures/01_pmf_visualisation.png", width = 900, height = 700)
 plottruncpois(lambda = 5, b = 10, main = "")
-legend("topleft", legend = "a = 0, b = 10", bty = "n")
 dev.off()
 
 # Exp 2: moment convergence. No LaplacesDemon comparison - no closed-form moments there
@@ -39,6 +38,20 @@ legend("bottomright", c("Truncated Variance", "Untruncated Variance"),
 
 par(mfrow = c(1, 1))
 dev.off()
+
+# LaplacesDemon has no closed-form moments here - extrunc()/vartrunc() use integrate() instead
+laplacesdemon_moments_demo <- data.frame(
+  statistic = c("mean", "variance"),
+  truncpois_exact = c(
+    extruncpois(lambda = lambda, a = 0, b = 10),
+    vartruncpois(lambda = lambda, a = 0, b = 10)
+  ),
+  laplacesdemon = c(
+    suppressWarnings(extrunc("pois", a = 0, b = 10, lambda = lambda)),
+    suppressWarnings(vartrunc("pois", a = 0, b = 10, lambda = lambda))
+  )
+)
+laplacesdemon_moments_demo
 
 # Exp 3: sampling efficiency, 5 diverse scenarios + LaplacesDemon (a corrected to a-1)
 set.seed(42)
@@ -79,7 +92,7 @@ barplot(timing_matrix,
 dev.off()
 
 sampling_timing_ms <- as.data.frame(timing_matrix)
-print(round(sampling_timing_ms, 2))
+round(sampling_timing_ms, 2)
 
 # Exp 4: numerical stability, extreme lambda / narrow windows, vs LaplacesDemon
 lambdas <- c(10, 50, 100, 200, 500, 1e5)
@@ -106,6 +119,12 @@ narrow_a <- 3
 narrow_b <- narrow_a + 1
 narrow_log_pmf <- dtruncpois(narrow_a, lambda = narrow_lambda, a = narrow_a, b = narrow_b, log = TRUE)
 
+# Left-truncated example (b = Inf) at extreme lambda, vs the row above
+left_trunc_lambda <- 1e5
+left_trunc_a <- 99500
+left_trunc_log_pmf <- dtruncpois(left_trunc_lambda, lambda = left_trunc_lambda, a = left_trunc_a, b = Inf, log = TRUE)
+c(left_trunc_log_pmf = left_trunc_log_pmf)
+
 png("Figures/04_numerical_stability.png", width = 900, height = 700)
 plot(stability$lambda, stability$log_pmf_truncpois,
   type = "b", pch = 19, col = "darkblue", lwd = 2, log = "x",
@@ -125,7 +144,20 @@ legend("bottomleft", c("Narrow window (±10 to ±500)", "Narrowest possible wind
 )
 dev.off()
 
-print(stability)
+stability
+
+# LaplacesDemon underflows here - window far in the tail of a large lambda
+tail_lambda <- 1e5
+tail_a <- tail_lambda + 3000
+tail_b <- tail_lambda + 3010
+tail_stability_demo <- data.frame(
+  method = c("truncpois", "LaplacesDemon"),
+  log_pmf = c(
+    dtruncpois(tail_a, lambda = tail_lambda, a = tail_a, b = tail_b, log = TRUE),
+    suppressWarnings(dtrunc(tail_a, spec = "pois", a = tail_a - 1, b = tail_b, lambda = tail_lambda, log = TRUE))
+  )
+)
+tail_stability_demo
 
 # lower.tail = FALSE gives the same result as the default - ignored
 tail_check <- data.frame(
@@ -139,7 +171,7 @@ tail_check <- data.frame(
     ptrunc(7, spec = "pois", a = 1, b = 10, lambda = 5, lower.tail = FALSE)
   )
 )
-print(tail_check)
+tail_check
 
 # same bug in qtrunc, plus no log.p support at all
 qtail_check <- data.frame(
@@ -153,7 +185,7 @@ qtail_check <- data.frame(
     qtrunc(0.3, spec = "pois", a = 1, b = 10, lambda = 5, lower.tail = FALSE)
   )
 )
-print(qtail_check)
+qtail_check
 qtrunc_logp_error <- tryCatch(
   {
     qtrunc(log(0.3), spec = "pois", a = 1, b = 10, lambda = 5, log.p = TRUE)
@@ -161,7 +193,7 @@ qtrunc_logp_error <- tryCatch(
   },
   error = function(e) conditionMessage(e)
 )
-print(c(qtrunc_log.p_TRUE_result = qtrunc_logp_error))
+c(qtrunc_log.p_TRUE_result = qtrunc_logp_error)
 
 # Exp 5: zero-truncated simulation
 set.seed(123)
@@ -201,7 +233,7 @@ barplot(t(moments_data[, -1]),
   beside = TRUE, col = c("steelblue", "coral"),
   main = "", ylab = "Value",
   names.arg = moments_data$Stat, legend.text = c("Theoretical", "Sample"),
-  args.legend = list(x = "topleft", inset = 0.025)
+  args.legend = list(x = "topright", inset = 0.025)
 )
 
 bootstrap_means <- replicate(1000, mean(sample(samples, replace = TRUE)))
@@ -237,14 +269,28 @@ barplot(rbind(Empirical = emp_prop6, Theoretical = theo_prop6),
 )
 dev.off()
 
-print(fit6)
+fit6
+
+# sample vs theoretical moments at fitted lambda
+sample_mode6 <- as.numeric(names(which.max(table(x6))))
+mle_moments <- data.frame(
+  statistic = c("mean", "variance", "median", "mode"),
+  sample = c(mean(x6), var(x6), median(x6), sample_mode6),
+  theoretical = c(
+    extruncpois(fit6$lambda, a = a6, b = b6),
+    vartruncpois(fit6$lambda, a = a6, b = b6),
+    medtruncpois(fit6$lambda, a = a6, b = b6),
+    modtruncpois(fit6$lambda, a = a6, b = b6)
+  )
+)
+mle_moments
 
 # function checks
 
 # dtruncpois: PMF sums to 1
 upper <- qtruncpois(1 - 1e-12, a = 1, lambda = 6)
 pmf_sum <- sum(dtruncpois(seq(1, upper, by = 1), a = 1, lambda = 6))
-print(c(pmf_sum_over_support = pmf_sum))
+c(pmf_sum_over_support = pmf_sum)
 
 # ptruncpois: lower.tail / log.p combos
 ptruncpois_demo <- c(
@@ -253,7 +299,7 @@ ptruncpois_demo <- c(
   upper_tail_log = ptruncpois(7, lambda = 5, a = 2, b = 10, lower.tail = FALSE, log.p = TRUE),
   lower_tail_log = ptruncpois(10, lambda = 5, a = 2, b = 10, log.p = TRUE)
 )
-print(ptruncpois_demo)
+ptruncpois_demo
 
 # qtruncpois: round-trip check against ptruncpois
 p_seq <- seq(0.1, 0.9, by = 0.2)
@@ -265,12 +311,12 @@ qtruncpois_roundtrip <- rbind(
   target_p = p_seq, quantile = q_vals, cdf_at_q = round(cdf_at_q, 4),
   quantile_from_logp = q_from_logp, quantile_upper_tail = q_upper_tail
 )
-print(qtruncpois_roundtrip)
-print(c(logp_matches_linear_input = all(q_from_logp == q_vals)))
+qtruncpois_roundtrip
+c(logp_matches_linear_input = all(q_from_logp == q_vals))
 
 # modtruncpois: non-integer vs integer lambda (tied modes)
-print(modtruncpois(lambda = 2.5, a = 0, b = 10))
-print(suppressWarnings(modtruncpois(lambda = 5, a = 0, b = 10)))
+modtruncpois(lambda = 2.5, a = 0, b = 10)
+suppressWarnings(modtruncpois(lambda = 5, a = 0, b = 10))
 
 # plottruncpois: cdf and quantile plot types
 png("Figures/plottruncpois_cdf_quantile.png", width = 1400, height = 700)
@@ -278,6 +324,11 @@ par(mfrow = c(1, 2))
 plottruncpois(lambda = 5, a = 2, b = 10, type = "cdf", main = "")
 plottruncpois(lambda = 5, a = 2, b = 10, type = "quantile", main = "")
 par(mfrow = c(1, 1))
+dev.off()
+
+# plottruncpois: PMF without comparison overlay
+png("Figures/plottruncpois_compare_false.png", width = 900, height = 700)
+plottruncpois(lambda = 4, a = 2, b = 9, compare = FALSE)
 dev.off()
 
 message("All experiments done. Figures saved to Figures/ folder.")

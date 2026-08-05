@@ -1,3 +1,23 @@
+@incollection{cameron2001,
+  author    = {Cameron, A. Colin and Trivedi, Pravin K.},
+  title     = {Essentials of Count Data Regression},
+  booktitle = {A Companion to Theoretical Econometrics},
+  editor    = {Baltagi, Badi H.},
+  publisher = {Blackwell},
+  address   = {Oxford},
+  year      = {2001},
+  pages     = {331--348}
+}
+
+@inproceedings{kontonis2019,
+  author    = {Kontonis, Vasilis and Tzamos, Christos and Zampetakis, Manolis},
+  title     = {Efficient Truncated Statistics with Unknown Truncation},
+  booktitle = {2019 IEEE 60th Annual Symposium on Foundations of Computer Science (FOCS)},
+  publisher = {IEEE},
+  year      = {2019},
+  pages     = {1578--1595}
+}
+
 @article{nadarajah2006,
   author  = {Nadarajah, Saralees and Kotz, Samuel},
   title   = {R Programs for Computing Truncated Distributions},
@@ -19,11 +39,12 @@
 }
 
 @manual{laplacesdemon,
-  title  = {LaplacesDemon: Complete Environment for Bayesian Inference},
+  title  = {LaplacesDemon: Complete Environment for {B}ayesian Inference},
   author = {{Statisticat, LLC}},
   year   = {2026},
   note   = {R package version 16.1.8},
-  url    = {https://web.archive.org/web/20150206004624/http://www.bayesian-inference.com/software}
+  url    = {https://CRAN.R-project.org/package=LaplacesDemon},
+  doi    = {10.32614/CRAN.package.LaplacesDemon}
 }
 
 @manual{truncdist,
@@ -31,7 +52,8 @@
   author = {Novomestky, Frederick and Nadarajah, Saralees},
   year   = {2016},
   note   = {R package version 1.0-2},
-  url    = {https://CRAN.R-project.org/package=truncdist}
+  url    = {https://CRAN.R-project.org/package=truncdist},
+  doi    = {10.32614/CRAN.package.truncdist}
 }
 
 @manual{vgam,
@@ -39,7 +61,8 @@
   author = {Yee, Thomas},
   year   = {2025},
   note   = {R package version 1.1-14},
-  url    = {https://CRAN.R-project.org/package=VGAM}
+  url    = {https://CRAN.R-project.org/package=VGAM},
+  doi    = {10.32614/CRAN.package.VGAM}
 }
 
 @manual{vgamdata,
@@ -47,7 +70,8 @@
   author = {Yee, Thomas},
   year   = {2025},
   note   = {R package version 1.1-13},
-  url    = {https://CRAN.R-project.org/package=VGAMdata}
+  url    = {https://CRAN.R-project.org/package=VGAMdata},
+  doi    = {10.32614/CRAN.package.VGAMdata}
 }
 
 @manual{gamlsstr,
@@ -55,15 +79,44 @@
   author = {Stasinopoulos, Mikis and Rigby, Bob},
   year   = {2024},
   note   = {R package version 5.1-9},
-  url    = {https://CRAN.R-project.org/package=gamlss.tr}
+  url    = {https://CRAN.R-project.org/package=gamlss.tr},
+  doi    = {10.32614/CRAN.package.gamlss.tr}
 }
 
 @manual{countreg,
-  title  = {countreg: Count Data Regression},
-  author = {Zeileis, Achim and Kleiber, Christian},
-  year   = {2024},
-  note   = {R package version 0.3-0},
-  url    = {https://R-Forge.R-project.org/projects/countreg/}
+  title        = {countreg: Count Data Regression},
+  author       = {Zeileis, Achim and Kleiber, Christian},
+  organization = {R-Forge},
+  year         = {2024},
+  note         = {R package version 0.3-0},
+  url          = {https://R-Forge.R-project.org/projects/countreg/}
+}
+
+@manual{devtools,
+  title  = {devtools: Tools to Make Developing R Packages Easier},
+  author = {Wickham, Hadley and Hester, Jim and Chang, Winston and Bryan, Jennifer},
+  year   = {2022},
+  note   = {R package version 2.5.2},
+  url    = {https://CRAN.R-project.org/package=devtools},
+  doi    = {10.32614/CRAN.package.devtools}
+}
+
+@manual{usethis,
+  title  = {usethis: Automate Package and Project Setup},
+  author = {Wickham, Hadley and Bryan, Jennifer and Barrett, Malcolm and Teucher, Andy},
+  year   = {2025},
+  note   = {R package version 3.2.1},
+  url    = {https://CRAN.R-project.org/package=usethis},
+  doi    = {10.32614/CRAN.package.usethis}
+}
+
+@manual{rmpfr,
+  title  = {Rmpfr: R MPFR - Multiple Precision Floating-Point Reliable},
+  author = {Maechler, Martin},
+  year   = {2025},
+  note   = {R package version 1.1-2},
+  url    = {https://CRAN.R-project.org/package=Rmpfr},
+  doi    = {10.32614/CRAN.package.Rmpfr}
 }
 
 @manual{roxygen2,
@@ -131,7 +184,7 @@
 
 @book{brent1973,
   author    = {Brent, Richard P.},
-  title     = {Algorithms for Minimization without Derivatives},
+  title     = {{Algorithms for Minimization Without Derivatives}},
   publisher = {Prentice-Hall},
   address   = {Englewood Cliffs, N.J.},
   year      = {1973}
